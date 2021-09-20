@@ -120,25 +120,18 @@ func (link *Link) GetNext() *Link {
 
 // Remove this link from its list.
 func (link *Link) PopSelf() {
-	if link.prev != nil {
-		link.prev.next = link.next
-	} else {
-		// link is the head
+	if link.list.head == link && link.list.tail == link {
+		link.list.head = nil
+		link.list.tail = nil
+	} else if link.list.head == link {
 		link.list.head = link.next
-		// link is also tail
-		if link.list.tail == link {
-			link.list.tail = nil
-		}
-	}
-	if link.next != nil {
-		link.next.prev = link.prev
-	} else {
-		// link is tail
+		link.next.prev = nil
+	} else if link.list.tail == link {
 		link.list.tail = link.prev
-		// link is also head
-		if link.list.head == link {
-			link.list.head = nil
-		}
+		link.prev.next = nil
+	} else {
+		link.prev.next = link.next
+		link.next.prev = link.prev
 	}
 }
 
