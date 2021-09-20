@@ -39,11 +39,6 @@ func NewRepl() *REPL {
 		commands: make(map[string]func(string, *REPLConfig) error),
 		help:     make(map[string]string),
 	}
-	action := func(string, *REPLConfig) error {
-		fmt.Printf(repl.HelpString())
-		return nil
-	}
-	repl.AddCommand(".help", action, "Prints out every command and meta command available to you")
 	return repl
 }
 
@@ -105,6 +100,11 @@ func (r *REPL) Run(c net.Conn, clientId uuid.UUID, prompt string) {
 	scanner := bufio.NewScanner((reader))
 	// replConfig := &REPLConfig{writer: writer, clientId: clientId}
 	// Begin the repl loop!
+	action := func(string, *REPLConfig) error {
+		fmt.Printf(r.HelpString())
+		return nil
+	}
+	r.AddCommand(".help", action, "Prints out every command and meta command available to you")
 	io.WriteString(writer, prompt)
 	for scanner.Scan() {
 		text := scanner.Text()
