@@ -151,27 +151,27 @@ func ListRepl(list *List) *repl.REPL {
 		return nil
 	}
 	listPushHead := func(text string, cfg *repl.REPLConfig) error {
-		idx := strings.Index(text, " ")
-		if idx == -1 {
+		tokens := strings.Fields(text)
+		if len(tokens) < 2 {
 			return fmt.Errorf("Usage: list_push_head <elt>\n")
 		}
-		list = list.PushHead(text[idx+1:]).GetList()
+		list = list.PushHead(tokens[1]).GetList()
 		return nil
 	}
 	listPushTail := func(text string, cfg *repl.REPLConfig) error {
-		idx := strings.Index(text, " ")
-		if idx == -1 {
-			return fmt.Errorf("Usage: list_push_tail <elt>\n")
+		tokens := strings.Fields(text)
+		if len(tokens) < 2 {
+			return fmt.Errorf("Usage: list_push_head <elt>\n")
 		}
-		list = list.PushTail(text[idx+1:]).GetList()
+		list = list.PushTail(tokens[1]).GetList()
 		return nil
 	}
 	listRemove := func(text string, cfg *repl.REPLConfig) error {
-		idx := strings.Index(text, " ")
-		if idx == -1 {
-			return fmt.Errorf("Usage: list_push_tail <elt>\n")
+		tokens := strings.Fields(text)
+		if len(tokens) < 2 {
+			return fmt.Errorf("Usage: list_push_head <elt>\n")
 		}
-		val := text[idx+1:]
+		val := tokens[1]
 		curr := list.PeekHead()
 		for curr != nil {
 			if curr.GetKey().(string) == val {
@@ -184,11 +184,11 @@ func ListRepl(list *List) *repl.REPL {
 		return nil
 	}
 	listContains := func(text string, cfg *repl.REPLConfig) error {
-		idx := strings.Index(text, " ")
-		if idx == -1 {
-			return fmt.Errorf("Usage: list_push_tail <elt>\n")
+		tokens := strings.Fields(text)
+		if len(tokens) < 2 {
+			return fmt.Errorf("Usage: list_push_head <elt>\n")
 		}
-		val := text[idx+1:]
+		val := tokens[1]
 		curr := list.PeekHead()
 		for curr != nil {
 			if curr.GetKey().(string) == val {
