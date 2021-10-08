@@ -192,6 +192,10 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 			return nil, err
 		}
 		if page.pinCount == 0 {
+			if page.IsDirty() {
+				// TODO: flush to disk
+				pager.FlushPage(page)
+			}
 			page.Get()
 			// TODO: move to pinned list
 			pLink.PopSelf()
@@ -211,6 +215,7 @@ func (pager *Pager) FlushPage(page *Page) {
 		return
 	}
 	pager.file.WriteAt(*page.GetData(), page.pagenum*PAGESIZE)
+	page.SetDirty(false)
 }
 
 // Flushes all dirty pages.
