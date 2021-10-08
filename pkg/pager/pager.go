@@ -134,8 +134,8 @@ func (pager *Pager) ReadPageFromDisk(page *Page, pagenum int64) error {
 // NewPage returns an unused buffer from the free or unpinned list
 // the ptMtx should be locked on entry
 func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
-	pager.ptMtx.Lock()
-	defer pager.ptMtx.Unlock()
+	// pager.ptMtx.Lock()
+	// defer pager.ptMtx.Unlock()
 	freeHead := pager.freeList.PeekHead()
 	if freeHead != nil {
 		page := freeHead.GetKey().(*Page)
@@ -170,8 +170,8 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 
 // getPage returns the page corresponding to the given pagenum.
 func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
-	pager.ptMtx.Lock()
-	defer pager.ptMtx.Unlock()
+	// pager.ptMtx.Lock()
+	// defer pager.ptMtx.Unlock()
 	if pagenum > pager.nPages+1 {
 		return nil, fmt.Errorf("Invalid page number %v, current pages: %v", pagenum, pager.nPages)
 	}
@@ -205,8 +205,8 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 
 // Flush a particular page to disk.
 func (pager *Pager) FlushPage(page *Page) {
-	pager.ptMtx.Lock()
-	defer pager.ptMtx.Unlock()
+	// pager.ptMtx.Lock()
+	// defer pager.ptMtx.Unlock()
 	if !pager.HasFile() {
 		return
 	}
@@ -215,8 +215,8 @@ func (pager *Pager) FlushPage(page *Page) {
 
 // Flushes all dirty pages.
 func (pager *Pager) FlushAllPages() {
-	pager.ptMtx.Lock()
-	defer pager.ptMtx.Unlock()
+	// pager.ptMtx.Lock()
+	// defer pager.ptMtx.Unlock()
 	cur := pager.pinnedList.PeekHead()
 	for cur != nil {
 		page := cur.GetKey().(*Page)
