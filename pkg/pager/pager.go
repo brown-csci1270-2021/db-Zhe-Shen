@@ -140,12 +140,15 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 	if freeHead != nil {
 		page := freeHead.GetKey().(*Page)
 		freeHead.PopSelf()
-		page.pinCount = 1
+		page.Get()
 		page.pagenum = pagenum
 		pager.nPages += 1
 		pager.pinnedList.PushTail(page)
 		pager.pageTable[pagenum] = pager.pinnedList.PeekTail()
 		return page, nil
+	}
+	if !pager.HasFile() {
+		return nil, fmt.Errorf("Pager not backed by disk!")
 	}
 	unpinnedHead := pager.unpinnedList.PeekHead()
 	if unpinnedHead == nil {
@@ -157,7 +160,7 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 		pager.FlushPage(page)
 	}
 	unpinnedHead.PopSelf()
-	page.pinCount = 1
+	page.Get()
 	page.pagenum = pagenum
 	pager.nPages += 1
 	pager.pinnedList.PushTail(page)
@@ -174,7 +177,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 	}
 	pLink, ok := pager.pageTable[pagenum]
 	if !ok {
-		page, err := pager.NewPage(pagenum)
+		page, err = pager.NewPage(pagenum)
 		if err != nil {
 			return nil, err
 		}
@@ -189,12 +192,12 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 			return nil, err
 		}
 		if page.pinCount == 0 {
-			page.pinCount = 1
+			page.Get()
 			// TODO: move to pinned list
 			pLink.PopSelf()
 			pager.pinnedList.PushTail(page)
 		} else {
-			page.pinCount += 1
+			page.Get()
 		}
 	}
 	return page, nil
@@ -204,7 +207,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 func (pager *Pager) FlushPage(page *Page) {
 	pager.ptMtx.Lock()
 	defer pager.ptMtx.Unlock()
-	if pager.file == nil {
+	if !pager.HasFile() {
 		return
 	}
 	pager.file.WriteAt(*page.GetData(), page.pagenum*PAGESIZE)
