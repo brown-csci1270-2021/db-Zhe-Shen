@@ -134,8 +134,8 @@ func (pager *Pager) ReadPageFromDisk(page *Page, pagenum int64) error {
 // NewPage returns an unused buffer from the free or unpinned list
 // the ptMtx should be locked on entry
 func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
-	pager.ptMtx.Lock()
-	defer pager.ptMtx.Unlock()
+	// pager.ptMtx.Lock()
+	// defer pager.ptMtx.Unlock()
 	freeHead := pager.freeList.PeekHead()
 	if freeHead != nil {
 		page := freeHead.GetKey().(*Page)
@@ -161,8 +161,8 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 	}
 	unpinnedHead.PopSelf()
 	page.Get()
+	delete(pager.pageTable, page.pagenum)
 	page.pagenum = pagenum
-	pager.nPages += 1
 	pager.pinnedList.PushTail(page)
 	pager.pageTable[pagenum] = pager.pinnedList.PeekTail()
 	return page, nil
@@ -194,10 +194,6 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		}
 		page.SetDirty(true)
 		if page.pinCount == 0 {
-			if page.IsDirty() {
-				// TODO: flush to disk
-				pager.FlushPage(page)
-			}
 			page.Get()
 			// TODO: move to pinned list
 			pLink.PopSelf()
