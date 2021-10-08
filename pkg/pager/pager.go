@@ -198,6 +198,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 			// TODO: move to pinned list
 			pLink.PopSelf()
 			pager.pinnedList.PushTail(page)
+			pager.pageTable[pagenum] = pager.pinnedList.PeekTail()
 		} else {
 			page.Get()
 		}
