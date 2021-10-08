@@ -207,7 +207,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 func (pager *Pager) FlushPage(page *Page) {
 	// pager.ptMtx.Lock()
 	// defer pager.ptMtx.Unlock()
-	if !pager.HasFile() {
+	if !pager.HasFile() || !page.IsDirty() {
 		return
 	}
 	pager.file.WriteAt(*page.GetData(), page.pagenum*PAGESIZE)
