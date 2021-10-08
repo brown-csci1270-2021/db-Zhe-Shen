@@ -185,12 +185,14 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		if err != nil {
 			return nil, err
 		}
+		page.SetDirty(true)
 	} else {
 		page = pLink.GetKey().(*Page)
 		err = pager.ReadPageFromDisk(page, pagenum)
 		if err != nil {
 			return nil, err
 		}
+		page.SetDirty(true)
 		if page.pinCount == 0 {
 			if page.IsDirty() {
 				// TODO: flush to disk
