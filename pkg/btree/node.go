@@ -57,16 +57,15 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 				isSplit: false,
 			}
 		} else {
-			return Split{}
+			return Split{
+				err: fmt.Errorf("Cannot insert duplicate key"),
+			}
 		}
 	}
 
 	for i := node.numKeys; i > idx; i-- {
-		entry := BTreeEntry{
-			key:   node.getKeyAt(i - 1),
-			value: node.getValueAt(i - 1),
-		}
-		node.modifyCell(i, entry)
+		node.updateKeyAt(i, node.getKeyAt(i-1))
+		node.updateValueAt(i, node.getValueAt(i-1))
 	}
 	node.updateKeyAt(idx, key)
 	node.updateValueAt(idx, value)
@@ -84,11 +83,8 @@ func (node *LeafNode) delete(key int64) {
 	idx := node.search(key)
 	if node.getKeyAt(idx) == key {
 		for i := idx + 1; i < node.numKeys; i++ {
-			entry := BTreeEntry{
-				key:   node.getKeyAt(i),
-				value: node.getValueAt(i),
-			}
-			node.modifyCell(i-1, entry)
+			node.updateKeyAt(i-1, node.getKeyAt(i))
+			node.updateValueAt(i-1, node.getValueAt(i))
 		}
 		node.updateNumKeys(node.numKeys - 1)
 	}
