@@ -114,7 +114,9 @@ func (r *REPL) Run(c net.Conn, clientId uuid.UUID, prompt string) {
 			io.WriteString(writer, prompt)
 			continue
 		}
-		err := r.commands[trigger](text, &REPLConfig{})
+		err := r.commands[trigger](text, &REPLConfig{
+			writer: writer,
+		})
 		if err != nil {
 			io.WriteString(writer, err.Error())
 		}
