@@ -181,7 +181,7 @@ func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 		}
 	}
 	split := child.insert(key, value, update)
-	if split.isSplit {
+	if split.isSplit && split.err == nil {
 		return node.insertSplit(split)
 	}
 	return split
@@ -241,7 +241,7 @@ func (node *InternalNode) split() Split {
 		newNode.updatePNAt(i-mid-1, node.getPNAt(i))
 		newNode.updateNumKeys(newNode.numKeys + 1)
 	}
-	newNode.updateKeyAt(node.numKeys-mid-1, node.getPNAt(node.numKeys))
+	newNode.updatePNAt(node.numKeys-mid-1, node.getPNAt(node.numKeys))
 	splitKey := node.getKeyAt(mid)
 	node.updateNumKeys(mid)
 	return Split{
