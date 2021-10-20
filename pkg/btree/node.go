@@ -49,7 +49,7 @@ func (node *LeafNode) search(key int64) int64 {
 // if update is true, allow overwriting existing keys. else, error.
 func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	idx := node.search(key)
-	if node.numKeys > 0 && node.getKeyAt(idx) == key {
+	if idx < node.numKeys && node.getKeyAt(idx) == key {
 		// duplicate insertion
 		if update {
 			node.updateValueAt(idx, value)
@@ -81,6 +81,9 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 // delete removes a given tuple from the leaf node, if the given key exists.
 func (node *LeafNode) delete(key int64) {
 	idx := node.search(key)
+	if idx == node.numKeys {
+		return
+	}
 	if node.getKeyAt(idx) == key {
 		for i := idx + 1; i < node.numKeys; i++ {
 			node.updateKeyAt(i-1, node.getKeyAt(i))
@@ -101,7 +104,9 @@ func (node *LeafNode) split() Split {
 		}
 	}
 	for i := mid; i < node.numKeys; i++ {
-		newNode.insert(node.getKeyAt(i), node.getValueAt(i), false)
+		// fmt.Printf("index %v, key %v\n", i, node.getKeyAt(i))
+		newNode.updateKeyAt(i-mid, node.getKeyAt(i))
+		newNode.updateValueAt(i-mid, node.getValueAt(i))
 		newNode.updateNumKeys(newNode.numKeys + 1)
 	}
 	node.updateNumKeys(mid)
