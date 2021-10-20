@@ -51,9 +51,15 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	idx := node.search(key)
 	if node.getKeyAt(idx) == key {
 		// duplicate insertion
-		node.updateValueAt(idx, value)
-		return Split{
-			isSplit: false,
+		if update {
+			node.updateValueAt(idx, value)
+			return Split{
+				isSplit: false,
+			}
+		} else {
+			return Split{
+				err: fmt.Errorf("Cannot insert duplicate key"),
+			}
 		}
 	}
 
@@ -191,6 +197,13 @@ func (node *InternalNode) insertSplit(split Split) Split {
 		}
 	}
 	idx := node.search(split.key)
+	if node.getKeyAt(idx) == split.key {
+		node.updatePNAt(idx, split.leftPN)
+		node.updatePNAt(idx+1, split.rightPN)
+		return Split{
+			isSplit: false,
+		}
+	}
 	for i := node.numKeys; i > idx; i-- {
 		key := node.getKeyAt(i - 1)
 		pn := node.getPNAt(i)
