@@ -58,7 +58,7 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 			}
 		} else {
 			return Split{
-				err: fmt.Errorf("Cannot insert duplicate key"),
+				err: fmt.Errorf("cs1270 is sb course"),
 			}
 		}
 	}
