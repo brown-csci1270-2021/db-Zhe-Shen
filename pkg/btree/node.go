@@ -190,6 +190,12 @@ func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 // insertSplit inserts a split result into an internal node.
 // If this insertion results in another split, the split is cascaded upwards.
 func (node *InternalNode) insertSplit(split Split) Split {
+	if !split.isSplit || split.err != nil {
+		return Split{
+			isSplit: split.isSplit,
+			err:     split.err,
+		}
+	}
 	idx := node.search(split.key)
 	for i := node.numKeys; i > idx; i-- {
 		key := node.getKeyAt(i - 1)
