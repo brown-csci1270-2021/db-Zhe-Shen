@@ -1,7 +1,9 @@
 package list
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	repl "github.com/brown-csci1270/db/pkg/repl"
@@ -15,74 +17,90 @@ type List struct {
 
 // Create a new list.
 func NewList() *List {
+	/* SOLUTION {{{ */
 	return &List{head: nil, tail: nil}
+	/* SOLUTION }}} */
 }
 
 // Get a pointer to the head of the list.
 func (list *List) PeekHead() *Link {
+	/* SOLUTION {{{ */
 	return list.head
+	/* SOLUTION }}} */
 }
 
 // Get a pointer to the tail of the list.
 func (list *List) PeekTail() *Link {
+	/* SOLUTION {{{ */
 	return list.tail
+	/* SOLUTION }}} */
 }
 
 // Add an element to the start of the list. Returns the added link.
 func (list *List) PushHead(value interface{}) *Link {
-	prevHead := list.PeekHead()
-	newHead := &Link{
-		prev:  nil,
-		next:  prevHead,
+	/* SOLUTION {{{ */
+	newLink := &Link{
+		list:  list,
+		next:  list.head,
 		value: value,
 	}
-	list.head = newHead
 	if list.tail == nil {
-		list.tail = newHead
-	} else {
-		prevHead.prev = newHead
+		list.tail = newLink
 	}
-	newHead.list = list
-	return newHead
+	if list.head != nil {
+		list.head.prev = newLink
+	}
+	list.head = newLink
+	return newLink
+	/* SOLUTION }}} */
 }
 
 // Add an element to the end of the list. Returns the added link.
 func (list *List) PushTail(value interface{}) *Link {
-	prevTail := list.PeekTail()
-	newTail := &Link{
-		prev:  prevTail,
-		next:  nil,
+	/* SOLUTION {{{ */
+	newLink := &Link{
+		list:  list,
+		prev:  list.tail,
 		value: value,
 	}
-	list.tail = newTail
 	if list.head == nil {
-		list.head = newTail
-	} else {
-		prevTail.next = newTail
+		list.head = newLink
 	}
-	newTail.list = list
-	return newTail
+	if list.tail != nil {
+		list.tail.next = newLink
+	}
+	list.tail = newLink
+	return newLink
+	/* SOLUTION }}} */
 }
 
 // Find an element in a list given a boolean function, f, that evaluates to true on the desired element.
 func (list *List) Find(f func(*Link) bool) *Link {
-	curr := list.head
-	for curr != nil {
-		if f(curr) {
-			return curr
+	/* SOLUTION {{{ */
+	for link := list.head; link != nil; {
+		if f(link) {
+			return link
 		}
-		curr = curr.next
+		if link == list.tail { // Break on last entry
+			break
+		}
+		link = link.next
 	}
 	return nil
+	/* SOLUTION }}} */
 }
 
 // Apply a function to every element in the list. f should alter Link in place.
 func (list *List) Map(f func(*Link)) {
-	curr := list.head
-	for curr != nil {
-		f(curr)
-		curr = curr.next
+	/* SOLUTION {{{ */
+	for link := list.head; link != nil; {
+		f(link)
+		if link == list.tail { // Break on last entry
+			break
+		}
+		link = link.next
 	}
+	/* SOLUTION }}} */
 }
 
 // Link struct.
@@ -95,117 +113,118 @@ type Link struct {
 
 // Get the list that this link is a part of.
 func (link *Link) GetList() *List {
+	/* SOLUTION {{{ */
 	return link.list
+	/* SOLUTION }}} */
 }
 
 // Get the link's value.
 func (link *Link) GetKey() interface{} {
+	/* SOLUTION {{{ */
 	return link.value
+	/* SOLUTION }}} */
 }
 
 // Set the link's value.
 func (link *Link) SetKey(value interface{}) {
+	/* SOLUTION {{{ */
 	link.value = value
+	/* SOLUTION }}} */
 }
 
 // Get the link's prev.
 func (link *Link) GetPrev() *Link {
+	/* SOLUTION {{{ */
 	return link.prev
+	/* SOLUTION }}} */
 }
 
 // Get the link's next.
 func (link *Link) GetNext() *Link {
+	/* SOLUTION {{{ */
 	return link.next
+	/* SOLUTION }}} */
 }
 
 // Remove this link from its list.
 func (link *Link) PopSelf() {
-	if link.list.head == link && link.list.tail == link {
-		link.list.head = nil
-		link.list.tail = nil
-	} else if link.list.head == link {
-		link.list.head = link.next
-		link.next.prev = nil
-	} else if link.list.tail == link {
-		link.list.tail = link.prev
-		link.prev.next = nil
-	} else {
-		link.prev.next = link.next
-		link.next.prev = link.prev
+	/* SOLUTION {{{ */
+	list := link.list
+	newPrev := link.prev
+	newNext := link.next
+	if newPrev != nil {
+		newPrev.next = newNext
 	}
+	if newNext != nil {
+		newNext.prev = newPrev
+	}
+	link.prev = nil
+	link.next = nil
+	if list.head == link {
+		list.head = newNext
+	}
+	if list.tail == link {
+		list.tail = newPrev
+	}
+	/* SOLUTION }}} */
 }
 
 // List REPL.
 func ListRepl(list *List) *repl.REPL {
-	listPrint := func(string, *repl.REPLConfig) error {
-		res := ""
-		curr := list.PeekHead()
-		for curr != nil {
-			res = res + fmt.Sprintf("%v,", curr.GetKey())
-			curr = curr.GetNext()
-		}
-		if len(res) > 0 {
-			res = res[:len(res)-1]
-		}
-		fmt.Println(res)
+	/* SOLUTION {{{ */
+	r := repl.NewRepl()
+	r.AddCommand("list_print", func(_ string, replConfig *repl.REPLConfig) error {
+		list.Map(func(l *Link) {
+			io.WriteString(replConfig.GetWriter(), fmt.Sprintf("%v, ", l.GetKey()))
+		})
 		return nil
-	}
-	listPushHead := func(text string, cfg *repl.REPLConfig) error {
-		tokens := strings.Fields(text)
-		if len(tokens) < 2 {
-			return fmt.Errorf("Usage: list_push_head <elt>\n")
+	}, "Prints out the elements of the list. usage: list_print")
+	r.AddCommand("list_push_head", func(payload string, replConfig *repl.REPLConfig) error {
+		fields := strings.Fields(payload)
+		numFields := len(fields)
+		if numFields != 2 {
+			return errors.New("usage: list_push_head <elt>")
 		}
-		list = list.PushHead(tokens[1]).GetList()
+		list.PushHead(fields[1])
 		return nil
-	}
-	listPushTail := func(text string, cfg *repl.REPLConfig) error {
-		tokens := strings.Fields(text)
-		if len(tokens) < 2 {
-			return fmt.Errorf("Usage: list_push_head <elt>\n")
+	}, "Add an element to the head of the list. usage: list_push_head <elt>")
+	r.AddCommand("list_push_tail", func(payload string, replConfig *repl.REPLConfig) error {
+		fields := strings.Fields(payload)
+		numFields := len(fields)
+		if numFields != 2 {
+			return errors.New("usage: list_push_tail <elt>")
 		}
-		list = list.PushTail(tokens[1]).GetList()
+		list.PushTail(fields[1])
 		return nil
-	}
-	listRemove := func(text string, cfg *repl.REPLConfig) error {
-		tokens := strings.Fields(text)
-		if len(tokens) < 2 {
-			return fmt.Errorf("Usage: list_push_head <elt>\n")
+	}, "Add an element to the tail of the list. usage: list_push_tail <elt>")
+	r.AddCommand("list_remove", func(payload string, replConfig *repl.REPLConfig) error {
+		fields := strings.Fields(payload)
+		numFields := len(fields)
+		if numFields != 2 {
+			return errors.New("usage: list_push_head <elt>")
 		}
-		val := tokens[1]
-		curr := list.PeekHead()
-		for curr != nil {
-			if curr.GetKey().(string) == val {
-				curr.PopSelf()
-				list = curr.list
-				return nil
-			}
-			curr = curr.GetNext()
+		to_remove := list.Find(func(l *Link) bool { return l.GetKey() == fields[1] })
+		if to_remove == nil {
+			return errors.New("not found")
+		}
+		to_remove.PopSelf()
+		io.WriteString(replConfig.GetWriter(), "removed\n")
+		return nil
+	}, "Remove an element with the given value from the list. usage: list_remove <elt>")
+	r.AddCommand("list_contains", func(payload string, replConfig *repl.REPLConfig) error {
+		fields := strings.Fields(payload)
+		numFields := len(fields)
+		if numFields != 2 {
+			return errors.New("usage: list_push_head <elt>")
+		}
+		found := list.Find(func(l *Link) bool { return l.GetKey() == fields[1] })
+		if found != nil {
+			io.WriteString(replConfig.GetWriter(), "found!\n")
+		} else {
+			io.WriteString(replConfig.GetWriter(), "not found\n")
 		}
 		return nil
-	}
-	listContains := func(text string, cfg *repl.REPLConfig) error {
-		tokens := strings.Fields(text)
-		if len(tokens) < 2 {
-			return fmt.Errorf("Usage: list_push_head <elt>\n")
-		}
-		val := tokens[1]
-		curr := list.PeekHead()
-		for curr != nil {
-			if curr.GetKey().(string) == val {
-				fmt.Println("Found!")
-				return nil
-			}
-			curr = curr.GetNext()
-		}
-		fmt.Println("not found")
-		return nil
-	}
-
-	rep := repl.NewRepl()
-	rep.AddCommand("list_print", listPrint, "Prints out all of the elements in the list in order, separated by commas")
-	rep.AddCommand("list_push_head", listPushHead, "Inserts the given element to the List as a string")
-	rep.AddCommand("list_push_tail", listPushTail, "Inserts the given element to the end of the List as a string")
-	rep.AddCommand("list_remove", listRemove, "Removes the given element from the list")
-	rep.AddCommand("list_contains", listContains, "Prints \"found!\" if the element is in the list, prints \"not found\" otherwise")
-	return rep
+	}, "Checks if an element exists in the list. usage: list_contains <elt>")
+	return r
+	/* SOLUTION }}} */
 }

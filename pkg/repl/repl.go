@@ -2,6 +2,7 @@ package repl
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -35,29 +36,41 @@ func (replConfig *REPLConfig) GetAddr() uuid.UUID {
 
 // Construct an empty REPL.
 func NewRepl() *REPL {
-	repl := &REPL{
-		commands: make(map[string]func(string, *REPLConfig) error),
-		help:     make(map[string]string),
-	}
-	return repl
+	/* SOLUTION {{{ */
+	commands := make(map[string]func(string, *REPLConfig) error)
+	help := make(map[string]string)
+	return &REPL{commands: commands, help: help}
+	/* SOLUTION }}} */
 }
 
-// Combine a slice of REPLs. If no REPLs are passed in,
-// return a NewREPL(). If REPLs have overlapping triggers,
-// return an error. Otherwise, return a REPL with the union
-// of the triggers.
+// Combines a slice of REPLs.
 func CombineRepls(repls []*REPL) (*REPL, error) {
-	merged := NewRepl()
-	for _, repl := range repls {
-		for trigger, action := range repl.commands {
-			if _, ok := merged.commands[trigger]; ok {
-				return nil, fmt.Errorf("Trigger %v duplicates\n", trigger)
+	/* SOLUTION {{{ */
+	// If no REPLs are passed, just return an empty one.
+	if len(repls) == 0 {
+		return NewRepl(), nil
+	}
+	// Go through each repl and construct a new command/help set
+	commands := make(map[string]func(string, *REPLConfig) error)
+	help := make(map[string]string)
+	for _, r := range repls {
+		// Combine the commands
+		for k, v := range r.commands {
+			if _, found := commands[k]; found {
+				return nil, errors.New("duplicate trigger" + k)
 			}
-			merged.commands[trigger] = action
-			merged.help[trigger] = repl.help[trigger]
+			commands[k] = v
+		}
+		// Combine the help strings
+		for k, v := range r.help {
+			if _, found := help[k]; found {
+				return nil, errors.New("duplicate trigger" + k)
+			}
+			help[k] = v
 		}
 	}
-	return merged, nil
+	return &REPL{commands: commands, help: help}, nil
+	/* SOLUTION }}} */
 }
 
 // Get commands.
@@ -72,17 +85,19 @@ func (r *REPL) GetHelp() map[string]string {
 
 // Add a command, along with its help string, to the set of commands.
 func (r *REPL) AddCommand(trigger string, action func(string, *REPLConfig) error, help string) {
+	/* SOLUTION {{{ */
 	r.commands[trigger] = action
 	r.help[trigger] = help
+	/* SOLUTION }}} */
 }
 
 // Return all REPL usage information as a string.
 func (r *REPL) HelpString() string {
-	res := ""
-	for trigger, help := range r.help {
-		res = res + fmt.Sprintf("%v: %v\n", trigger, help)
+	var sb strings.Builder
+	for k, v := range r.help {
+		sb.WriteString(fmt.Sprintf("%s: %s\n", k, v))
 	}
-	return res
+	return sb.String()
 }
 
 // Run the REPL.
@@ -98,34 +113,44 @@ func (r *REPL) Run(c net.Conn, clientId uuid.UUID, prompt string) {
 		writer = c
 	}
 	scanner := bufio.NewScanner((reader))
-	// replConfig := &REPLConfig{writer: writer, clientId: clientId}
+	replConfig := &REPLConfig{writer: writer, clientId: clientId}
 	// Begin the repl loop!
-	action := func(string, *REPLConfig) error {
-		fmt.Printf(r.HelpString())
-		return nil
-	}
-	r.AddCommand(".help", action, "Prints out every command and meta command available to you")
+	/* SOLUTION {{{ */
 	io.WriteString(writer, prompt)
 	for scanner.Scan() {
-		text := scanner.Text()
-		trigger := cleanInput(text)
-		if _, ok := r.commands[trigger]; !ok {
-			io.WriteString(writer, "Command not supported!\n")
+		payload := cleanInput(scanner.Text())
+		fields := strings.Fields(payload)
+		if len(fields) == 0 {
 			io.WriteString(writer, prompt)
 			continue
 		}
-		err := r.commands[trigger](text, &REPLConfig{
-			writer: writer,
-		})
-		if err != nil {
-			io.WriteString(writer, err.Error())
+		trigger := cleanInput(fields[0])
+		// Check for a meta-command.
+		if trigger == ".help" {
+			io.WriteString(writer, r.HelpString())
+			io.WriteString(writer, prompt)
+			continue
+		}
+		// Else, check user commands.
+		if command, exists := r.commands[trigger]; exists {
+			// Call a hardcoded function.
+			err := command(payload, replConfig)
+			if err != nil {
+				io.WriteString(writer, fmt.Sprintf("%v\n", err))
+			}
+		} else {
+			io.WriteString(writer, "command not found\n")
 		}
 		io.WriteString(writer, prompt)
 	}
+	// Print an additional line if we encountered an EOF character.
+	io.WriteString(writer, "\n")
+	/* SOLUTION }}} */
 }
 
 // cleanInput preprocesses input to the db repl.
 func cleanInput(text string) string {
-	tokens := strings.Split(text, " ")
-	return tokens[0]
+	output := strings.TrimSpace(text)
+	output = strings.ToLower(output)
+	return output
 }
