@@ -50,23 +50,17 @@ func (node *LeafNode) search(key int64) int64 {
 // if update is true, allow overwriting existing keys. else, error.
 func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	idx := node.search(key)
-	if idx < node.numKeys && node.getKeyAt(idx) == key {
-		// duplicate insertion
-		if update {
+	if update {
+		if idx < node.numKeys && node.getKeyAt(idx) == key {
+			node.updateKeyAt(idx, key)
 			node.updateValueAt(idx, value)
 			return Split{
 				isSplit: false,
 			}
 		} else {
 			return Split{
-				err: fmt.Errorf("Cannot insert duplicate key"),
+				err: fmt.Errorf("Cannot update non-existent entry"),
 			}
-		}
-	}
-
-	if update && (idx == node.numKeys || node.getKeyAt(idx) != key) {
-		return Split{
-			err: fmt.Errorf("Cannot update non-existent entry"),
 		}
 	}
 
