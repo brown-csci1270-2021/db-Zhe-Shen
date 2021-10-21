@@ -91,7 +91,8 @@ func (table *BTreeIndex) TableFind(key int64) (utils.Cursor, error) {
 	curHeader := pageToNodeHeader(curPage)
 	for curHeader.nodeType != LEAF_NODE {
 		curNode := pageToInternalNode(curPage)
-		pn := curNode.search(key)
+		idx := curNode.search(key)
+		pn := curNode.getPNAt(idx)
 		curPage, err = table.pager.GetPage(pn)
 		if err != nil {
 			return nil, err
@@ -103,6 +104,7 @@ func (table *BTreeIndex) TableFind(key int64) (utils.Cursor, error) {
 	idx := node.search(key)
 	cursor.curNode = node
 	cursor.cellnum = idx
+	cursor.isEnd = (idx == node.numKeys)
 	return &cursor, nil
 }
 
@@ -113,7 +115,12 @@ func (table *BTreeIndex) TableFindRange(startKey int64, endKey int64) ([]utils.E
 		return nil, err
 	}
 	entries := make([]utils.Entry, 0)
-	for !cursor.IsEnd() {
+	for {
+		if cursor.IsEnd() {
+			if cursor.StepForward() != nil {
+				break
+			}
+		}
 		entry, err := cursor.GetEntry()
 		if err != nil {
 			return nil, err

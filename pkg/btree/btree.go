@@ -160,7 +160,12 @@ func (table *BTreeIndex) Select() ([]utils.Entry, error) {
 		return nil, err
 	}
 	entries := make([]utils.Entry, 0)
-	for !cursor.IsEnd() {
+	for {
+		if cursor.IsEnd() {
+			if cursor.StepForward() != nil {
+				break
+			}
+		}
 		entry, err := cursor.GetEntry()
 		if err != nil {
 			return nil, err
