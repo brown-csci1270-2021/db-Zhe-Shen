@@ -3,6 +3,7 @@ package btree
 import (
 	"fmt"
 	"io"
+	"log"
 	"sort"
 	"strconv"
 
@@ -90,6 +91,7 @@ func (node *LeafNode) delete(key int64) {
 			node.updateValueAt(i-1, node.getValueAt(i))
 		}
 		node.updateNumKeys(node.numKeys - 1)
+		// fmt.Println(node.numKeys)
 	}
 }
 
@@ -105,8 +107,8 @@ func (node *LeafNode) split() Split {
 	}
 	for i := mid; i < node.numKeys; i++ {
 		// fmt.Printf("index %v, key %v\n", i, node.getKeyAt(i))
-		newNode.updateKeyAt(i-mid, node.getKeyAt(i))
-		newNode.updateValueAt(i-mid, node.getValueAt(i))
+		newNode.updateKeyAt(newNode.numKeys, node.getKeyAt(i))
+		newNode.updateValueAt(newNode.numKeys, node.getValueAt(i))
 		newNode.updateNumKeys(newNode.numKeys + 1)
 	}
 	node.updateNumKeys(mid)
@@ -233,6 +235,7 @@ func (node *InternalNode) delete(key int64) {
 	child, err := node.getChildAt(idx)
 	defer child.getPage().Put()
 	if err != nil {
+		log.Println(err)
 		return
 	}
 	child.delete(key)
@@ -249,11 +252,11 @@ func (node *InternalNode) split() Split {
 	}
 	mid := (node.numKeys - 1) / 2
 	for i := mid + 1; i < node.numKeys; i++ {
-		newNode.updateKeyAt(i-mid-1, node.getKeyAt(i))
-		newNode.updatePNAt(i-mid-1, node.getPNAt(i))
+		newNode.updateKeyAt(newNode.numKeys, node.getKeyAt(i))
+		newNode.updatePNAt(newNode.numKeys, node.getPNAt(i))
 		newNode.updateNumKeys(newNode.numKeys + 1)
 	}
-	newNode.updatePNAt(node.numKeys-mid-1, node.getPNAt(node.numKeys))
+	newNode.updatePNAt(newNode.numKeys, node.getPNAt(node.numKeys))
 	splitKey := node.getKeyAt(mid)
 	node.updateNumKeys(mid)
 	return Split{
