@@ -64,12 +64,6 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 		}
 	}
 
-	if update && (idx == node.numKeys || node.getKeyAt(idx) != key) {
-		return Split{
-			err: fmt.Errorf("Cannot update non-existent entry"),
-		}
-	}
-
 	for i := node.numKeys; i > idx; i-- {
 		node.updateKeyAt(i, node.getKeyAt(i-1))
 		node.updateValueAt(i, node.getValueAt(i-1))
