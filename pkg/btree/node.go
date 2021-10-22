@@ -179,7 +179,7 @@ func (node *LeafNode) printNode(w io.Writer, firstPrefix string, prefix string) 
 // If no such index exists, it returns numKeys.
 func (node *InternalNode) search(key int64) int64 {
 	return int64(sort.Search(int(node.numKeys), func(i int) bool {
-		return node.getKeyAt(int64(i)) >= key
+		return node.getKeyAt(int64(i)) > key
 	}))
 }
 
