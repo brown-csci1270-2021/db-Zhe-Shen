@@ -106,27 +106,19 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 		return err
 	}
 	for _, entry := range entries {
-		bucket.Delete(entry.GetKey())
-	}
-	for _, entry := range entries {
 		entryHash := Hasher(entry.GetKey(), table.GetDepth())
 		if entryHash == hash {
-			split, err := bucket.Insert(entry.GetKey(), entry.GetValue())
-			if err != nil {
-				return err
-			}
-			if split {
-				table.Split(bucket, hash)
-			}
+			bucket.Insert(entry.GetKey(), entry.GetValue())
 		} else if entryHash == newHash {
-			split, err := newBucket.Insert(entry.GetKey(), entry.GetValue())
-			if err != nil {
-				return err
-			}
-			if split {
-				table.Split(newBucket, newHash)
-			}
+			bucket.Delete(entry.GetKey())
+			newBucket.Insert(entry.GetKey(), entry.GetValue())
 		}
+	}
+	if bucket.numKeys > BUCKETSIZE {
+		return table.Split(bucket, hash)
+	}
+	if newBucket.numKeys > BUCKETSIZE {
+		return table.Split(newBucket, newHash)
 	}
 	return nil
 }
