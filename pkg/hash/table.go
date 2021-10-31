@@ -75,6 +75,7 @@ func (table *HashTable) Find(key int64) (utils.Entry, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer bucket.GetPage().Put()
 	entry, found := bucket.Find(key)
 	if !found {
 		return nil, fmt.Errorf("%v not found\n", key)
@@ -105,9 +106,6 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 		return err
 	}
 	for _, entry := range entries {
-		bucket.Delete(entry.GetKey())
-	}
-	for _, entry := range entries {
 		entryHash := Hasher(entry.GetKey(), bucket.GetDepth())
 		if entryHash == hash {
 			split, err := bucket.Insert(entry.GetKey(), entry.GetValue())
@@ -118,6 +116,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 				table.Split(bucket, hash)
 			}
 		} else if entryHash == newHash {
+			bucket.Delete(entry.GetKey())
 			split, err := newBucket.Insert(entry.GetKey(), entry.GetValue())
 			if err != nil {
 				return err
@@ -137,6 +136,7 @@ func (table *HashTable) Insert(key int64, value int64) error {
 	if err != nil {
 		return err
 	}
+	defer bucket.GetPage().Put()
 	split, err := bucket.Insert(key, value)
 	if err != nil {
 		return err
@@ -154,6 +154,7 @@ func (table *HashTable) Update(key int64, value int64) error {
 	if err != nil {
 		return err
 	}
+	defer bucket.GetPage().Put()
 	err = bucket.Update(key, value)
 	return err
 }
@@ -165,6 +166,7 @@ func (table *HashTable) Delete(key int64) error {
 	if err != nil {
 		return err
 	}
+	defer bucket.GetPage().Put()
 	err = bucket.Delete(key)
 	return err
 }
@@ -178,6 +180,7 @@ func (table *HashTable) Select() ([]utils.Entry, error) {
 		if err != nil {
 			return nil, err
 		}
+		defer bucket.GetPage().Put()
 		tmpEntries, err := bucket.Select()
 		if err != nil {
 			return nil, err
