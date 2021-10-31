@@ -109,7 +109,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 		bucket.Delete(entry.GetKey())
 	}
 	for _, entry := range entries {
-		entryHash := Hasher(entry.GetKey(), bucket.GetDepth())
+		entryHash := Hasher(entry.GetKey(), table.GetDepth())
 		if entryHash == hash {
 			split, err := bucket.Insert(entry.GetKey(), entry.GetValue())
 			if err != nil {
