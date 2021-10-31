@@ -106,11 +106,13 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 		return err
 	}
 	for _, entry := range entries {
+		bucket.Delete(entry.GetKey())
+	}
+	for _, entry := range entries {
 		entryHash := Hasher(entry.GetKey(), table.GetDepth())
 		if entryHash == hash {
 			bucket.Insert(entry.GetKey(), entry.GetValue())
 		} else if entryHash == newHash {
-			bucket.Delete(entry.GetKey())
 			newBucket.Insert(entry.GetKey(), entry.GetValue())
 		}
 	}
@@ -120,6 +122,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 	if newBucket.numKeys > BUCKETSIZE {
 		return table.Split(newBucket, newHash)
 	}
+
 	return nil
 }
 
