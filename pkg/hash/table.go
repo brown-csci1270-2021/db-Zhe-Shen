@@ -91,7 +91,7 @@ func (table *HashTable) ExtendTable() {
 
 // Split the given bucket into two, extending the table if necessary.
 func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
-	newHash := hash + (1 << (bucket.GetDepth() - 1))
+	newHash := hash | (1 << bucket.GetDepth())
 	bucket.updateDepth(bucket.GetDepth() + 1)
 	if bucket.GetDepth() > table.GetDepth() {
 		table.ExtendTable()
@@ -110,7 +110,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 		bucket.Delete(entry.GetKey())
 	}
 	for _, entry := range entries {
-		entryHash := Hasher(entry.GetKey(), table.GetDepth())
+		entryHash := Hasher(entry.GetKey(), bucket.GetDepth())
 		if entryHash == hash {
 			bucket.Insert(entry.GetKey(), entry.GetValue())
 		} else if entryHash == newHash {
