@@ -140,7 +140,7 @@ func (table *HashTable) Insert(key int64, value int64) error {
 		return err
 	}
 	if split {
-		return table.Split(bucket, Hasher(key, bucket.GetDepth()))
+		return table.Split(bucket, hash)
 	}
 	return nil
 }
