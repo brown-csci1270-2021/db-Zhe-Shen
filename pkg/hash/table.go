@@ -118,7 +118,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 		}
 	}
 
-	step := 1 << (bucket.GetDepth() - 1)
+	step := (1 << bucket.GetDepth())
 	for i := int(newHash); i < len(table.buckets); i += step {
 		table.buckets[i] = newBucket.page.GetPageNum()
 	}
