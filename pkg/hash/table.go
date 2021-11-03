@@ -91,9 +91,8 @@ func (table *HashTable) ExtendTable() {
 
 // Split the given bucket into two, extending the table if necessary.
 func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
+	hash = hash % (1 << bucket.GetDepth())
 	newHash := hash | (1 << bucket.GetDepth())
-	fmt.Printf("global depth: %v, local depth: %v, hash: %v, newHash: %v",
-		table.depth, bucket.depth, hash, newHash)
 	bucket.updateDepth(bucket.GetDepth() + 1)
 	newBucket, err := NewHashBucket(table.pager, bucket.GetDepth())
 	if err != nil {
@@ -118,7 +117,11 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 			newBucket.Insert(entry.GetKey(), entry.GetValue())
 		}
 	}
-	table.buckets[newHash] = newBucket.page.GetPageNum()
+
+	step := 1 << (bucket.GetDepth() - 1)
+	for i := int(newHash); i < len(table.buckets); i += step {
+		table.buckets[i] = newBucket.page.GetPageNum()
+	}
 	if bucket.numKeys > BUCKETSIZE {
 		return table.Split(bucket, hash)
 	}
