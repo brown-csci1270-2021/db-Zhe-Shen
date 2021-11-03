@@ -53,7 +53,7 @@ func (bucket *HashBucket) Insert(key int64, value int64) (bool, error) {
 	bucket.updateKeyAt(bucket.numKeys, key)
 	bucket.updateValueAt(bucket.numKeys, value)
 	bucket.updateNumKeys(bucket.numKeys + 1)
-	if bucket.numKeys > BUCKETSIZE {
+	if bucket.numKeys >= BUCKETSIZE {
 		return true, nil
 	}
 	return false, nil
