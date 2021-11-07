@@ -20,15 +20,15 @@ func CreateFilter(size int64) *BloomFilter {
 
 // Insert adds an element into the bloom filter.
 func (filter *BloomFilter) Insert(key int64) {
-	xx := hash.XxHasher(key, DEFAULT_FILTER_SIZE)
-	murmur := hash.MurmurHasher(key, DEFAULT_FILTER_SIZE)
+	xx := hash.XxHasher(key, filter.size)
+	murmur := hash.MurmurHasher(key, filter.size)
 	filter.bits.Set(xx)
 	filter.bits.Set(murmur)
 }
 
 // Contains checks if the given key can be found in the bloom filter/
 func (filter *BloomFilter) Contains(key int64) bool {
-	xx := hash.XxHasher(key, DEFAULT_FILTER_SIZE)
-	murmur := hash.MurmurHasher(key, DEFAULT_FILTER_SIZE)
+	xx := hash.XxHasher(key, filter.size)
+	murmur := hash.MurmurHasher(key, filter.size)
 	return filter.bits.Test(xx) && filter.bits.Test(murmur)
 }
