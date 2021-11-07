@@ -14,9 +14,9 @@ import (
 	db "github.com/brown-csci1270/db/pkg/db"
 	list "github.com/brown-csci1270/db/pkg/list"
 	pager "github.com/brown-csci1270/db/pkg/pager"
+	query "github.com/brown-csci1270/db/pkg/query"
 	repl "github.com/brown-csci1270/db/pkg/repl"
 
-	// query "github.com/brown-csci1270/db/pkg/query"
 	// concurrency "github.com/brown-csci1270/db/pkg/concurrency"
 	// recovery "github.com/brown-csci1270/db/pkg/recovery"
 
@@ -133,10 +133,10 @@ func main() {
 		repls = append(repls, db.DatabaseRepl(database))
 
 	// [QUERY]
-	// case "query":
-	// 	server = false
-	// 	repls = append(repls, db.DatabaseRepl(database))
-	// 	repls = append(repls, query.QueryRepl(database))
+	case "query":
+		server = false
+		repls = append(repls, db.DatabaseRepl(database))
+		repls = append(repls, query.QueryRepl(database))
 
 	// [CONCURRENCY]
 	// case "concurrency":
