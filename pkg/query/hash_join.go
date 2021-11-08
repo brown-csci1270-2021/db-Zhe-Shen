@@ -110,32 +110,28 @@ func probeBuckets(
 	for _, le := range lentries {
 		if joinOnLeftKey {
 			if filter.Contains(le.GetKey()) {
-				if joinOnRightKey {
-					re, ok := rBucket.Find(le.GetKey())
-					if ok {
-						sendResult(ctx, resultsChan, EntryPair{l: le, r: re})
-					}
-				} else {
-					re, ok := rBucket.Find(le.GetKey())
-					if ok {
-						hashEntry := flip(re)
-						sendResult(ctx, resultsChan, EntryPair{l: le, r: hashEntry})
+				for _, re := range rentries {
+					if le.GetKey() == re.GetKey() {
+						if joinOnRightKey {
+							sendResult(ctx, resultsChan, EntryPair{l: le, r: re})
+						} else {
+							rhash := flip(re)
+							sendResult(ctx, resultsChan, EntryPair{l: le, r: rhash})
+						}
 					}
 				}
 			}
 		} else {
-			if filter.Contains(le.GetValue()) {
+			if filter.Contains(le.GetKey()) {
 				lhash := flip(le)
-				if joinOnRightKey {
-					re, ok := rBucket.Find(le.GetValue())
-					if ok {
-						sendResult(ctx, resultsChan, EntryPair{l: lhash, r: re})
-					}
-				} else {
-					re, ok := rBucket.Find(le.GetValue())
-					if ok {
-						rhash := flip(re)
-						sendResult(ctx, resultsChan, EntryPair{l: lhash, r: rhash})
+				for _, re := range rentries {
+					if le.GetKey() == re.GetKey() {
+						if joinOnRightKey {
+							sendResult(ctx, resultsChan, EntryPair{l: lhash, r: re})
+						} else {
+							rhash := flip(re)
+							sendResult(ctx, resultsChan, EntryPair{l: lhash, r: rhash})
+						}
 					}
 				}
 			}
