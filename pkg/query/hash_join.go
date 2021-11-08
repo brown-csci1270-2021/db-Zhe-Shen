@@ -124,15 +124,15 @@ func probeBuckets(
 				}
 			}
 		} else {
-			if filter.Contains(le.GetKey()) {
+			if filter.Contains(le.GetValue()) {
 				lhash := flip(le)
 				if joinOnRightKey {
-					re, ok := rBucket.Find(le.GetKey())
+					re, ok := rBucket.Find(le.GetValue())
 					if ok {
 						sendResult(ctx, resultsChan, EntryPair{l: lhash, r: re})
 					}
 				} else {
-					re, ok := rBucket.Find(le.GetKey())
+					re, ok := rBucket.Find(le.GetValue())
 					if ok {
 						rhash := flip(re)
 						sendResult(ctx, resultsChan, EntryPair{l: lhash, r: rhash})
@@ -212,8 +212,7 @@ func Join(
 }
 
 func flip(entry utils.Entry) hash.HashEntry {
-	tmp := entry
-	hashEntry, _ := tmp.(hash.HashEntry)
+	hashEntry := hash.HashEntry{}
 	hashEntry.SetKey(entry.GetValue())
 	hashEntry.SetValue(entry.GetKey())
 	return hashEntry
