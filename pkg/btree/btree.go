@@ -59,8 +59,12 @@ func (table *BTreeIndex) Find(key int64) (utils.Entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rootPage.Put()
+	// [CONCURRENCY] Lock and eventually unlock the root node.
+	lockRoot(rootPage)
 	rootNode := pageToNode(rootPage)
+	initRootNode(rootNode)
+	defer unsafeUnlockRoot(rootNode)
+	defer rootPage.Put()
 	// Insert the entry into the root node.
 	value, found := rootNode.get(key)
 	if found {
@@ -76,13 +80,19 @@ func (table *BTreeIndex) Insert(key int64, value int64) error {
 	if err != nil {
 		return err
 	}
-	defer rootPage.Put()
+	// [CONCURRENCY] Lock and eventually unlock the root node.
+	lockRoot(rootPage)
 	rootNode := pageToNode(rootPage)
+	initRootNode(rootNode)
+	defer unsafeUnlockRoot(rootNode)
+	defer rootPage.Put()
 	// Insert the entry into the root node.
 	result := rootNode.insert(key, value, false)
 	// Check if we need to split the root node.
 	// Remember to preserve the invariant that the root node occupies page 0.
 	if result.isSplit {
+		// [CONCURRENCY] Unlock the root node.
+		defer SUPER_NODE.unlock()
 		// Ensure that our left PN hasn't changed.
 		if result.leftPN != 0 {
 			return errors.New("splitting was corrupted")
@@ -132,8 +142,12 @@ func (table *BTreeIndex) Update(key int64, value int64) error {
 	if err != nil {
 		return err
 	}
-	defer rootPage.Put()
+	// [CONCURRENCY] Lock and eventually unlock the root node.
+	lockRoot(rootPage)
 	rootNode := pageToNode(rootPage)
+	initRootNode(rootNode)
+	defer unsafeUnlockRoot(rootNode)
+	defer rootPage.Put()
 	// Update the entry.
 	result := rootNode.insert(key, value, true)
 	return result.err
@@ -146,8 +160,12 @@ func (table *BTreeIndex) Delete(key int64) error {
 	if err != nil {
 		return err
 	}
-	defer rootPage.Put()
+	// [CONCURRENCY] Lock and eventually unlock the root node.
+	lockRoot(rootPage)
 	rootNode := pageToNode(rootPage)
+	initRootNode(rootNode)
+	defer unsafeUnlockRoot(rootNode)
+	defer rootPage.Put()
 	// Delete the key.
 	rootNode.delete(key)
 	return nil
@@ -155,28 +173,28 @@ func (table *BTreeIndex) Delete(key int64) error {
 
 // Select returns a slice of all entries in the table.
 func (table *BTreeIndex) Select() ([]utils.Entry, error) {
+	/* SOLUTION {{{ */
+	// Use a cursor to traverse the table from start to end.
+	entries := make([]utils.Entry, 0)
 	cursor, err := table.TableStart()
 	if err != nil {
 		return nil, err
 	}
-	entries := make([]utils.Entry, 0)
+	// Traverse over all entries.
 	for {
-		if cursor.IsEnd() {
-			if cursor.StepForward() != nil {
-				break
+		if !cursor.IsEnd() {
+			entry, err := cursor.GetEntry()
+			if err != nil {
+				return nil, err
 			}
+			entries = append(entries, entry)
 		}
-		entry, err := cursor.GetEntry()
-		if err != nil {
-			return nil, err
-		}
-		entries = append(entries, entry)
-		err = cursor.StepForward()
-		if err != nil {
-			return nil, err
+		if err := cursor.StepForward(); err != nil {
+			break
 		}
 	}
 	return entries, nil
+	/* SOLUTION }}} */
 }
 
 // Print will pretty-print all nodes in the table.

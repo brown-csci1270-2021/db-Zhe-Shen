@@ -191,15 +191,17 @@ func Join(
 		}
 		seenList[bucketPair] = true
 
-		lBucket, err := leftHashTable.GetBucketByPN(lBucketPN)
+		lBucket, err := leftHashTable.GetBucketByPN(lBucketPN, hash.READ_LOCK)
 		if err != nil {
 			return nil, nil, nil, cleanupCallback, err
 		}
-		rBucket, err := rightHashTable.GetBucketByPN(rBucketPN)
+		defer lBucket.GetPage().RUnlock()
+		rBucket, err := rightHashTable.GetBucketByPN(rBucketPN, hash.READ_LOCK)
 		if err != nil {
 			lBucket.GetPage().Put()
 			return nil, nil, nil, cleanupCallback, err
 		}
+		defer rBucket.GetPage().RUnlock()
 		group.Go(func() error {
 			return probeBuckets(ctx, resultsChan, lBucket, rBucket, joinOnLeftKey, joinOnRightKey)
 		})

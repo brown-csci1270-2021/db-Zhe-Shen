@@ -10,7 +10,7 @@ clean:
 	rm -rf data
 
 test:
-	go test ./test/* -v
+	go test ./test/* -v -race
 
 bench:
 	go test ./pkg/* -bench=.

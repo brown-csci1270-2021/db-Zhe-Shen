@@ -49,6 +49,8 @@ func (node *LeafNode) search(key int64) int64 {
 // insert finds the appropriate place in a leaf node to insert a new tuple.
 // if update is true, allow overwriting existing keys. else, error.
 func (node *LeafNode) insert(key int64, value int64, update bool) Split {
+	defer node.unlock()
+	node.unlockParent(false)
 	idx := node.search(key)
 	if idx < node.numKeys && node.getKeyAt(idx) == key {
 		// duplicate insertion
@@ -80,6 +82,7 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	if node.numKeys > ENTRIES_PER_LEAF_NODE {
 		return node.split()
 	}
+	node.unlockParent(true)
 	return Split{
 		isSplit: false,
 	}
@@ -87,6 +90,7 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 
 // delete removes a given tuple from the leaf node, if the given key exists.
 func (node *LeafNode) delete(key int64) {
+	defer node.unlock()
 	idx := node.search(key)
 	if idx == node.numKeys {
 		return
@@ -131,6 +135,7 @@ func (node *LeafNode) split() Split {
 
 // get returns the value associated with a given key from the leaf node.
 func (node *LeafNode) get(key int64) (value int64, found bool) {
+	defer node.unlock()
 	index := node.search(key)
 	if index >= node.numKeys || node.getKeyAt(index) != key {
 		// Thank you Mario! But our key is in another castle!
@@ -185,18 +190,22 @@ func (node *InternalNode) search(key int64) int64 {
 
 // insert finds the appropriate place in a leaf node to insert a new tuple.
 func (node *InternalNode) insert(key int64, value int64, update bool) Split {
+	defer node.unlock()
+	node.unlockParent(false)
 	idx := node.search(key)
-	child, err := node.getChildAt(idx)
-	defer child.getPage().Put()
+	child, err := node.getChildAt(idx, true)
 	if err != nil {
 		return Split{
 			err: err,
 		}
 	}
+	node.initChild(child)
+	defer child.getPage().Put()
 	split := child.insert(key, value, update)
 	if split.isSplit && split.err == nil {
 		return node.insertSplit(split)
 	}
+	node.unlockParent(true)
 	return split
 }
 
@@ -238,12 +247,14 @@ func (node *InternalNode) insertSplit(split Split) Split {
 // delete removes a given tuple from the leaf node, if the given key exists.
 func (node *InternalNode) delete(key int64) {
 	idx := node.search(key)
-	child, err := node.getChildAt(idx)
-	defer child.getPage().Put()
+	child, err := node.getChildAt(idx, true)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	node.initChild(child)
+	defer child.getPage().Put()
+	node.unlock()
 	child.delete(key)
 }
 
@@ -277,10 +288,12 @@ func (node *InternalNode) split() Split {
 // get returns the value associated with a given key from the leaf node.
 func (node *InternalNode) get(key int64) (value int64, found bool) {
 	childIdx := node.search(key)
-	child, err := node.getChildAt(childIdx)
+	child, err := node.getChildAt(childIdx, true)
 	if err != nil {
 		return 0, false
 	}
+	node.initChild(child)
+	node.unlock()
 	defer child.getPage().Put()
 	return child.get(key)
 }
@@ -288,7 +301,7 @@ func (node *InternalNode) get(key int64) (value int64, found bool) {
 // keyToNodeEntry is a helper function to create cursors that point to a given index within a leaf node.
 func (node *InternalNode) keyToNodeEntry(key int64) (*LeafNode, int64, error) {
 	index := node.search(key)
-	child, err := node.getChildAt(index)
+	child, err := node.getChildAt(index, false)
 	if err != nil {
 		return &LeafNode{}, 0, err
 	}
@@ -313,7 +326,7 @@ func (node *InternalNode) printNode(w io.Writer, firstPrefix string, prefix stri
 	nextPrefix := prefix + " |    "
 	for idx := int64(0); idx <= node.numKeys; idx++ {
 		io.WriteString(w, fmt.Sprintf("%v\n", nextPrefix))
-		child, err := node.getChildAt(idx)
+		child, err := node.getChildAt(idx, false)
 		if err != nil {
 			return
 		}

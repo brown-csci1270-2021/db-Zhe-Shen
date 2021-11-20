@@ -70,11 +70,15 @@ func (table *HashTable) GetPager() *pager.Pager {
 
 // Finds the entry with the given key.
 func (table *HashTable) Find(key int64) (utils.Entry, error) {
+	table.RLock()
 	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	bucket, err := table.GetBucket(hash, READ_LOCK)
 	if err != nil {
+		table.RUnlock()
 		return nil, err
 	}
+	table.RUnlock()
+	defer bucket.GetPage().RUnlock()
 	defer bucket.GetPage().Put()
 	entry, found := bucket.Find(key)
 	if !found {
@@ -134,29 +138,37 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 
 // Inserts the given key-value pair, splits if necessary.
 func (table *HashTable) Insert(key int64, value int64) error {
+	table.WLock()
+	defer table.WUnlock()
 	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	bucket, err := table.GetBucket(hash, WRITE_LOCK)
 	if err != nil {
 		return err
 	}
+	defer bucket.GetPage().WUnlock()
 	defer bucket.GetPage().Put()
 	split, err := bucket.Insert(key, value)
 	if err != nil {
 		return err
 	}
 	if split {
-		return table.Split(bucket, hash)
+		err := table.Split(bucket, hash)
+		return err
 	}
 	return nil
 }
 
 // Update the given key-value pair.
 func (table *HashTable) Update(key int64, value int64) error {
+	table.WLock()
 	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	bucket, err := table.GetBucket(hash, WRITE_LOCK)
 	if err != nil {
+		table.WUnlock()
 		return err
 	}
+	table.WUnlock()
+	defer bucket.GetPage().WUnlock()
 	defer bucket.GetPage().Put()
 	err = bucket.Update(key, value)
 	return err
@@ -164,11 +176,15 @@ func (table *HashTable) Update(key int64, value int64) error {
 
 // Delete the given key-value pair, does not coalesce.
 func (table *HashTable) Delete(key int64) error {
+	table.WLock()
 	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	bucket, err := table.GetBucket(hash, WRITE_LOCK)
 	if err != nil {
+		table.WUnlock()
 		return err
 	}
+	table.WUnlock()
+	defer bucket.GetPage().WUnlock()
 	defer bucket.GetPage().Put()
 	err = bucket.Delete(key)
 	return err
@@ -179,15 +195,18 @@ func (table *HashTable) Select() ([]utils.Entry, error) {
 	buckets := table.GetBuckets()
 	entries := make([]utils.Entry, 0)
 	for _, pn := range buckets {
-		bucket, err := table.GetBucketByPN(pn)
+		bucket, err := table.GetBucketByPN(pn, READ_LOCK)
 		if err != nil {
 			return nil, err
 		}
-		defer bucket.GetPage().Put()
 		tmpEntries, err := bucket.Select()
 		if err != nil {
+			bucket.GetPage().RUnlock()
+			bucket.GetPage().Put()
 			return nil, err
 		}
+		bucket.GetPage().RUnlock()
+		bucket.GetPage().Put()
 		entries = append(entries, tmpEntries...)
 	}
 	return entries, nil
@@ -201,11 +220,10 @@ func (table *HashTable) Print(w io.Writer) {
 	io.WriteString(w, fmt.Sprintf("global depth: %d\n", table.depth))
 	for i := range table.buckets {
 		io.WriteString(w, fmt.Sprintf("====\nbucket %d\n", i))
-		bucket, err := table.GetBucket(int64(i))
+		bucket, err := table.GetBucket(int64(i), READ_LOCK)
 		if err != nil {
 			continue
 		}
-		bucket.RLock()
 		bucket.Print(w)
 		bucket.RUnlock()
 		bucket.page.Put()
@@ -221,11 +239,10 @@ func (table *HashTable) PrintPN(pn int, w io.Writer) {
 		fmt.Println("out of bounds")
 		return
 	}
-	bucket, err := table.GetBucketByPN(int64(pn))
+	bucket, err := table.GetBucketByPN(int64(pn), READ_LOCK)
 	if err != nil {
 		return
 	}
-	bucket.RLock()
 	bucket.Print(w)
 	bucket.RUnlock()
 	bucket.page.Put()
