@@ -192,6 +192,7 @@ func (node *InternalNode) search(key int64) int64 {
 
 // insert finds the appropriate place in a leaf node to insert a new tuple.
 func (node *InternalNode) insert(key int64, value int64, update bool) Split {
+	defer node.unlock()
 	node.unlockParent(false)
 	idx := node.search(key)
 	child, err := node.getChildAt(idx, true)
@@ -256,6 +257,7 @@ func (node *InternalNode) delete(key int64) {
 	}
 	node.initChild(child)
 	defer child.getPage().Put()
+	// node.unlock()
 	child.delete(key)
 }
 
@@ -295,6 +297,7 @@ func (node *InternalNode) get(key int64) (value int64, found bool) {
 		return 0, false
 	}
 	node.initChild(child)
+	// node.unlock()
 	defer child.getPage().Put()
 	return child.get(key)
 }
