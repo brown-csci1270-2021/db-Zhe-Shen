@@ -191,12 +191,12 @@ func Join(
 		}
 		seenList[bucketPair] = true
 
-		lBucket, err := leftHashTable.GetBucketByPN(lBucketPN, hash.READ_LOCK)
+		lBucket, err := leftHashTable.GetBucketByPN(lBucketPN, hash.NO_LOCK)
 		if err != nil {
 			return nil, nil, nil, cleanupCallback, err
 		}
 		defer lBucket.GetPage().RUnlock()
-		rBucket, err := rightHashTable.GetBucketByPN(rBucketPN, hash.READ_LOCK)
+		rBucket, err := rightHashTable.GetBucketByPN(rBucketPN, hash.NO_LOCK)
 		if err != nil {
 			lBucket.GetPage().Put()
 			return nil, nil, nil, cleanupCallback, err
