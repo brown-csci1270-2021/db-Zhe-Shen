@@ -95,25 +95,23 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		resourceKey: resourceKey,
 	}
 	tm.tmMtx.RLock()
-	transaction, found := tm.GetTransaction(clientId)
+	t, found := tm.GetTransaction(clientId)
+	tm.tmMtx.RUnlock()
 	conflicts := tm.discoverTransactions(resource, lType)
 	for _, con := range conflicts {
 		tm.pGraph.WLock()
-		tm.pGraph.AddEdge(transaction, con)
+		tm.pGraph.AddEdge(t, con)
 		tm.pGraph.WUnlock()
 		if tm.pGraph.DetectCycle() {
-			tm.tmMtx.RUnlock()
 			return errors.New("Deadlock created")
 		}
 	}
-	// tm.pGraph.WUnlock()
-	tm.tmMtx.RUnlock()
 	if !found {
 		return errors.New("Transaction not found")
 	}
-	tm.tmMtx.Lock()
-	defer tm.tmMtx.Unlock()
-	lt, found := transaction.resources[resource]
+	t.WLock()
+	defer t.WUnlock()
+	lt, found := t.resources[resource]
 	if found {
 		if lt == R_LOCK && lType == W_LOCK {
 			lm := tm.GetLockManager()
@@ -122,15 +120,16 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 			return errors.New("Cannot change lock")
 		}
 	}
-	transaction.resources[resource] = lType
+	t.resources[resource] = lType
 	lm := tm.GetLockManager()
 	err := lm.Lock(resource, lType)
 	if err != nil {
 		return err
 	}
+	conflicts = tm.discoverTransactions(resource, lType)
 	for _, con := range conflicts {
 		tm.pGraph.WLock()
-		tm.pGraph.RemoveEdge(transaction, con)
+		tm.pGraph.RemoveEdge(t, con)
 		tm.pGraph.WUnlock()
 	}
 	return nil
@@ -143,19 +142,19 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 		resourceKey: resourceKey,
 	}
 	tm.tmMtx.RLock()
-	transaction, found := tm.GetTransaction(clientId)
+	t, found := tm.GetTransaction(clientId)
 	tm.tmMtx.RUnlock()
 	if !found {
 		return errors.New("Transaction not found")
 	}
-	tm.tmMtx.Lock()
-	defer tm.tmMtx.Unlock()
 	lm := tm.GetLockManager()
 	err := lm.Unlock(resource, lType)
 	if err != nil {
 		return err
 	}
-	delete(transaction.resources, resource)
+	t.WLock()
+	defer t.WUnlock()
+	delete(t.resources, resource)
 	return nil
 }
 
