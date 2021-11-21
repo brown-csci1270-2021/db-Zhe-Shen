@@ -192,7 +192,11 @@ func (node *InternalNode) search(key int64) int64 {
 
 // insert finds the appropriate place in a leaf node to insert a new tuple.
 func (node *InternalNode) insert(key int64, value int64, update bool) Split {
-	defer node.unlock()
+	defer func() {
+		if node.parent != nil {
+			node.unlock()
+		}
+	}()
 	node.unlockParent(false)
 	idx := node.search(key)
 	child, err := node.getChildAt(idx, true)
