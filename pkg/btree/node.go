@@ -50,7 +50,7 @@ func (node *LeafNode) search(key int64) int64 {
 // if update is true, allow overwriting existing keys. else, error.
 func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	defer node.unlock()
-	// node.unlockParent(false)
+	node.unlockParent(false)
 	idx := node.search(key)
 	if idx < node.numKeys && node.getKeyAt(idx) == key {
 		// duplicate insertion
@@ -196,7 +196,7 @@ func (node *InternalNode) search(key int64) int64 {
 // insert finds the appropriate place in a leaf node to insert a new tuple.
 func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 	defer node.unlock()
-	// node.unlockParent(false)
+	node.unlockParent(false)
 	idx := node.search(key)
 	child, err := node.getChildAt(idx, true)
 	if err != nil {

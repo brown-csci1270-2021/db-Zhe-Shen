@@ -106,7 +106,7 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 			return errors.New("Deadlock created")
 		}
 	}
-	tm.pGraph.WUnlock()
+	// tm.pGraph.WUnlock()
 	tm.tmMtx.RUnlock()
 	if !found {
 		return errors.New("Transaction not found")
