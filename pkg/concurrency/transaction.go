@@ -98,6 +98,18 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 	if !found {
 		return errors.New("Transaction not found")
 	}
+	t.WLock()
+	defer t.WUnlock()
+	lt, found := t.resources[resource]
+	if found {
+		if lt == R_LOCK && lType == W_LOCK {
+			return errors.New("Cannot upgrade lock")
+		} else if lt == W_LOCK && lType == R_LOCK {
+			return errors.New("Cannot downgrade lock")
+		} else {
+			return nil
+		}
+	}
 	conflicts := tm.discoverTransactions(resource, lType)
 	tm.pGraph.WLock()
 	for _, con := range conflicts {
@@ -108,17 +120,6 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		}
 	}
 	tm.pGraph.WUnlock()
-	t.WLock()
-	defer t.WUnlock()
-	lt, found := t.resources[resource]
-	if found {
-		if lt == R_LOCK && lType == W_LOCK {
-			lm := tm.GetLockManager()
-			lm.Unlock(resource, lt)
-		} else {
-			return errors.New("Cannot change lock")
-		}
-	}
 	t.resources[resource] = lType
 	lm := tm.GetLockManager()
 	err := lm.Lock(resource, lType)
