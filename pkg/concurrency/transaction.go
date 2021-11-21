@@ -94,21 +94,20 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		tableName:   table.GetName(),
 		resourceKey: resourceKey,
 	}
-	tm.tmMtx.RLock()
 	t, found := tm.GetTransaction(clientId)
-	tm.tmMtx.RUnlock()
-	conflicts := tm.discoverTransactions(resource, lType)
-	for _, con := range conflicts {
-		tm.pGraph.WLock()
-		tm.pGraph.AddEdge(t, con)
-		tm.pGraph.WUnlock()
-		if tm.pGraph.DetectCycle() {
-			return errors.New("Deadlock created")
-		}
-	}
 	if !found {
 		return errors.New("Transaction not found")
 	}
+	conflicts := tm.discoverTransactions(resource, lType)
+	tm.pGraph.WLock()
+	for _, con := range conflicts {
+		tm.pGraph.AddEdge(t, con)
+		if tm.pGraph.DetectCycle() {
+			tm.pGraph.WUnlock()
+			return errors.New("Deadlock created")
+		}
+	}
+	tm.pGraph.WUnlock()
 	t.WLock()
 	defer t.WUnlock()
 	lt, found := t.resources[resource]
@@ -127,11 +126,11 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		return err
 	}
 	conflicts = tm.discoverTransactions(resource, lType)
+	tm.pGraph.WLock()
 	for _, con := range conflicts {
-		tm.pGraph.WLock()
 		tm.pGraph.RemoveEdge(t, con)
-		tm.pGraph.WUnlock()
 	}
+	tm.pGraph.WUnlock()
 	return nil
 }
 
@@ -141,9 +140,7 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 		tableName:   table.GetName(),
 		resourceKey: resourceKey,
 	}
-	tm.tmMtx.RLock()
 	t, found := tm.GetTransaction(clientId)
-	tm.tmMtx.RUnlock()
 	if !found {
 		return errors.New("Transaction not found")
 	}
