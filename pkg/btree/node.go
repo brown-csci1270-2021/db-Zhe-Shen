@@ -56,10 +56,12 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 		// duplicate insertion
 		if update {
 			node.updateValueAt(idx, value)
+			node.unlockParent(true)
 			return Split{
 				isSplit: false,
 			}
 		} else {
+			node.unlockParent(true)
 			return Split{
 				err: fmt.Errorf("Cannot insert duplicate key"),
 			}
@@ -67,6 +69,7 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	}
 
 	if update {
+		node.unlockParent(true)
 		return Split{
 			err: fmt.Errorf("Cannot update non-existent key"),
 		}
@@ -192,15 +195,12 @@ func (node *InternalNode) search(key int64) int64 {
 
 // insert finds the appropriate place in a leaf node to insert a new tuple.
 func (node *InternalNode) insert(key int64, value int64, update bool) Split {
-	defer func() {
-		if node.parent != nil {
-			node.unlock()
-		}
-	}()
+	defer node.unlock()
 	node.unlockParent(false)
 	idx := node.search(key)
 	child, err := node.getChildAt(idx, true)
 	if err != nil {
+		node.unlockParent(true)
 		return Split{
 			err: err,
 		}
