@@ -95,24 +95,25 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		resourceKey: resourceKey,
 	}
 	tm.tmMtx.RLock()
-	t, found := tm.GetTransaction(clientId)
-	tm.tmMtx.RUnlock()
+	transaction, found := tm.GetTransaction(clientId)
 	conflicts := tm.discoverTransactions(resource, lType)
-	tm.pGraph.WLock()
 	for _, con := range conflicts {
-		tm.pGraph.AddEdge(t, con)
+		tm.pGraph.WLock()
+		tm.pGraph.AddEdge(transaction, con)
+		tm.pGraph.WUnlock()
 		if tm.pGraph.DetectCycle() {
-			tm.pGraph.WUnlock()
+			tm.tmMtx.RUnlock()
 			return errors.New("Deadlock created")
 		}
 	}
-	tm.pGraph.WUnlock()
+	// tm.pGraph.WUnlock()
+	tm.tmMtx.RUnlock()
 	if !found {
 		return errors.New("Transaction not found")
 	}
-	t.WLock()
-	defer t.WUnlock()
-	lt, found := t.resources[resource]
+	tm.tmMtx.Lock()
+	defer tm.tmMtx.Unlock()
+	lt, found := transaction.resources[resource]
 	if found {
 		if lt == R_LOCK && lType == W_LOCK {
 			lm := tm.GetLockManager()
@@ -121,17 +122,17 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 			return errors.New("Cannot change lock")
 		}
 	}
-	t.resources[resource] = lType
+	transaction.resources[resource] = lType
 	lm := tm.GetLockManager()
 	err := lm.Lock(resource, lType)
 	if err != nil {
 		return err
 	}
-	tm.pGraph.WLock()
 	for _, con := range conflicts {
-		tm.pGraph.RemoveEdge(t, con)
+		tm.pGraph.WLock()
+		tm.pGraph.RemoveEdge(transaction, con)
+		tm.pGraph.WUnlock()
 	}
-	tm.pGraph.WUnlock()
 	return nil
 }
 
@@ -142,19 +143,19 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 		resourceKey: resourceKey,
 	}
 	tm.tmMtx.RLock()
-	t, found := tm.GetTransaction(clientId)
+	transaction, found := tm.GetTransaction(clientId)
 	tm.tmMtx.RUnlock()
 	if !found {
 		return errors.New("Transaction not found")
 	}
+	tm.tmMtx.Lock()
+	defer tm.tmMtx.Unlock()
 	lm := tm.GetLockManager()
 	err := lm.Unlock(resource, lType)
 	if err != nil {
 		return err
 	}
-	t.WLock()
-	defer t.WUnlock()
-	delete(t.resources, resource)
+	delete(transaction.resources, resource)
 	return nil
 }
 
