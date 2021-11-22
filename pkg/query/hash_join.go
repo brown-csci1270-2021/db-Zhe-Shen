@@ -41,32 +41,32 @@ func buildHashIndex(
 		return nil, "", err
 	}
 	// Build the hash index.
+	/* SOLUTION {{{ */
+	// Get the cursor and load the hash table.
 	cursor, err := sourceTable.TableStart()
 	if err != nil {
-		return
+		return nil, "", err
 	}
+	// Loop through all entries.
 	for {
-		if cursor.IsEnd() {
-			if cursor.StepForward() != nil {
-				break
+		if !cursor.IsEnd() {
+			val, err := cursor.GetEntry()
+			if err != nil {
+				return nil, "", err
+			}
+			// Swap keys and values if needed, this needs to be swapped back later.
+			if useKey {
+				tempIndex.Insert(val.GetKey(), val.GetValue())
+			} else {
+				tempIndex.Insert(val.GetValue(), val.GetKey())
 			}
 		}
-		entry, er := cursor.GetEntry()
-		if er != nil {
-			err = er
-			return
-		}
-		if useKey {
-			tempIndex.Insert(entry.GetKey(), entry.GetValue())
-		} else {
-			tempIndex.Insert(entry.GetValue(), entry.GetKey())
-		}
-		err = cursor.StepForward()
-		if err != nil {
-			return
+		if err = cursor.StepForward(); err != nil {
+			break
 		}
 	}
-	return
+	return tempIndex, dbName, nil
+	/* SOLUTION }}} */
 }
 
 // sendResult attempts to send a single join result to the resultsChan channel as long as the errgroup hasn't been cancelled.
@@ -95,49 +95,56 @@ func probeBuckets(
 	defer lBucket.GetPage().Put()
 	defer rBucket.GetPage().Put()
 	// Probe buckets.
-	lentries, err := lBucket.Select()
+	/* SOLUTION {{{ */
+	// Get bucket entries.
+	lBucketEntries, err := lBucket.Select()
 	if err != nil {
 		return err
 	}
-	rentries, err := rBucket.Select()
+	rBucketEntries, err := rBucket.Select()
 	if err != nil {
 		return err
 	}
+	// Set up the bloom filter.
 	filter := CreateFilter(DEFAULT_FILTER_SIZE)
-	for _, re := range rentries {
-		filter.Insert(re.GetKey())
+	for _, rEntry := range rBucketEntries {
+		filter.Insert(rEntry.GetKey())
 	}
-	for _, le := range lentries {
-		if joinOnLeftKey {
-			if filter.Contains(le.GetKey()) {
-				for _, re := range rentries {
-					if le.GetKey() == re.GetKey() {
-						if joinOnRightKey {
-							sendResult(ctx, resultsChan, EntryPair{l: le, r: re})
-						} else {
-							rhash := flip(re)
-							sendResult(ctx, resultsChan, EntryPair{l: le, r: rhash})
-						}
-					}
+	for _, lEntry := range lBucketEntries {
+		lMatchKey := lEntry.GetKey()
+		// Check the bloom filter first.
+		if !filter.Contains(lMatchKey) {
+			continue
+		}
+		// Check all entries if the key is in the filter.
+		for _, rEntry := range rBucketEntries {
+			rMatchKey := rEntry.GetKey()
+			if lMatchKey == rMatchKey {
+				// Swap keys and values as needed.
+				var lResult, rResult hash.HashEntry
+				if joinOnLeftKey {
+					lResult.SetKey(lEntry.GetKey())
+					lResult.SetValue(lEntry.GetValue())
+				} else {
+					lResult.SetKey(lEntry.GetValue())
+					lResult.SetValue(lEntry.GetKey())
 				}
-			}
-		} else {
-			if filter.Contains(le.GetKey()) {
-				lhash := flip(le)
-				for _, re := range rentries {
-					if le.GetKey() == re.GetKey() {
-						if joinOnRightKey {
-							sendResult(ctx, resultsChan, EntryPair{l: lhash, r: re})
-						} else {
-							rhash := flip(re)
-							sendResult(ctx, resultsChan, EntryPair{l: lhash, r: rhash})
-						}
-					}
+				if joinOnRightKey {
+					rResult.SetKey(rEntry.GetKey())
+					rResult.SetValue(rEntry.GetValue())
+				} else {
+					rResult.SetKey(rEntry.GetValue())
+					rResult.SetValue(rEntry.GetKey())
+				}
+				err = sendResult(ctx, resultsChan, EntryPair{l: lResult, r: rResult})
+				if err != nil {
+					return err
 				}
 			}
 		}
 	}
 	return nil
+	/* SOLUTION }}} */
 }
 
 // Join leftTable on rightTable using Grace Hash Join.
@@ -195,23 +202,14 @@ func Join(
 		if err != nil {
 			return nil, nil, nil, cleanupCallback, err
 		}
-		defer lBucket.GetPage().RUnlock()
 		rBucket, err := rightHashTable.GetBucketByPN(rBucketPN, hash.NO_LOCK)
 		if err != nil {
 			lBucket.GetPage().Put()
 			return nil, nil, nil, cleanupCallback, err
 		}
-		defer rBucket.GetPage().RUnlock()
 		group.Go(func() error {
 			return probeBuckets(ctx, resultsChan, lBucket, rBucket, joinOnLeftKey, joinOnRightKey)
 		})
 	}
 	return resultsChan, ctx, group, cleanupCallback, nil
-}
-
-func flip(entry utils.Entry) hash.HashEntry {
-	hashEntry := hash.HashEntry{}
-	hashEntry.SetKey(entry.GetValue())
-	hashEntry.SetValue(entry.GetKey())
-	return hashEntry
 }

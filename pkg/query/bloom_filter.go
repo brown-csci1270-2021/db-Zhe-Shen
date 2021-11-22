@@ -2,7 +2,7 @@ package query
 
 import (
 	bitset "github.com/bits-and-blooms/bitset"
-	"github.com/brown-csci1270/db/pkg/hash"
+	hash "github.com/brown-csci1270/db/pkg/hash"
 )
 
 type BloomFilter struct {
@@ -12,23 +12,26 @@ type BloomFilter struct {
 
 // CreateFilter initializes a BloomFilter with the given size.
 func CreateFilter(size int64) *BloomFilter {
+	/* SOLUTION {{{ */
 	return &BloomFilter{
 		size: size,
 		bits: bitset.New(uint(size)),
 	}
+	/* SOLUTION }}} */
 }
 
 // Insert adds an element into the bloom filter.
 func (filter *BloomFilter) Insert(key int64) {
-	xx := hash.XxHasher(key, filter.size)
-	murmur := hash.MurmurHasher(key, filter.size)
-	filter.bits.Set(xx)
-	filter.bits.Set(murmur)
+	/* SOLUTION {{{ */
+	filter.bits.Set(hash.XxHasher(key, filter.size))
+	filter.bits.Set(hash.MurmurHasher(key, filter.size))
+	/* SOLUTION }}} */
 }
 
 // Contains checks if the given key can be found in the bloom filter/
 func (filter *BloomFilter) Contains(key int64) bool {
-	xx := hash.XxHasher(key, filter.size)
-	murmur := hash.MurmurHasher(key, filter.size)
-	return filter.bits.Test(xx) && filter.bits.Test(murmur)
+	/* SOLUTION {{{ */
+	return (filter.bits.Test(hash.XxHasher(key, filter.size)) &&
+		filter.bits.Test(hash.MurmurHasher(key, filter.size)))
+	/* SOLUTION }}} */
 }
