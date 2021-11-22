@@ -84,7 +84,7 @@ func (table *BTreeIndex) Insert(key int64, value int64) error {
 	lockRoot(rootPage)
 	rootNode := pageToNode(rootPage)
 	initRootNode(rootNode)
-	// defer unsafeUnlockRoot(rootNode)
+	defer unsafeUnlockRoot(rootNode)
 	defer rootPage.Put()
 	// Insert the entry into the root node.
 	result := rootNode.insert(key, value, false)

@@ -213,7 +213,11 @@ func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 	/* SOLUTION {{{ */
 	// Insert the entry into the appropriate child node.
 	node.unlockParent(false)
-	defer node.unlock()
+	defer func() {
+		if node.parent != nil {
+			node.unlock()
+		}
+	}()
 	childIdx := node.search(key)
 	child, err := node.getChildAt(childIdx, true)
 	if err != nil {
