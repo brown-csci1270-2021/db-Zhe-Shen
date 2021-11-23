@@ -103,15 +103,9 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 	}
 	t.WLock()
 	defer t.WUnlock()
-	lt, found := t.resources[resource]
+	_, found = t.resources[resource]
 	if found {
-		if lt == R_LOCK && lType == W_LOCK {
-			return errors.New("Cannot upgrade lock")
-		} else if lt == W_LOCK && lType == R_LOCK {
-			return errors.New("Cannot downgrade lock")
-		} else {
-			return nil
-		}
+		return errors.New("test")
 	}
 	conflicts := tm.discoverTransactions(resource, lType)
 	tm.pGraph.WLock()
