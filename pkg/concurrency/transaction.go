@@ -94,7 +94,9 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		tableName:   table.GetName(),
 		resourceKey: resourceKey,
 	}
+	tm.tmMtx.RLock()
 	t, found := tm.GetTransaction(clientId)
+	tm.tmMtx.RUnlock()
 	if !found {
 		return errors.New("Transaction not found")
 	}
@@ -107,7 +109,7 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		} else if lt == W_LOCK && lType == R_LOCK {
 			return errors.New("Cannot downgrade lock")
 		} else {
-			return errors.New("Same lock")
+			return nil
 		}
 	}
 	conflicts := tm.discoverTransactions(resource, lType)
@@ -140,7 +142,9 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 		tableName:   table.GetName(),
 		resourceKey: resourceKey,
 	}
+	tm.tmMtx.RLock()
 	t, found := tm.GetTransaction(clientId)
+	tm.tmMtx.RUnlock()
 	if !found {
 		return errors.New("Transaction not found")
 	}
