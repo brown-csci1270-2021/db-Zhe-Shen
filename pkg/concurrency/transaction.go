@@ -94,15 +94,13 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		tableName:   table.GetName(),
 		resourceKey: resourceKey,
 	}
-	tm.tmMtx.RLock()
 	t, found := tm.GetTransaction(clientId)
-	tm.tmMtx.RUnlock()
 	if !found {
 		return errors.New("Transaction not found")
 	}
-	t.WLock()
-	defer t.WUnlock()
+	t.RLock()
 	lt, found := t.resources[resource]
+	t.RUnlock()
 	if found {
 		if lt == R_LOCK && lType == W_LOCK {
 			return errors.New("Cannot upgrade lock")
@@ -122,7 +120,9 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		}
 	}
 	tm.pGraph.WUnlock()
+	t.WLock()
 	t.resources[resource] = lType
+	t.WUnlock()
 	lm := tm.GetLockManager()
 	err := lm.Lock(resource, lType)
 	if err != nil {
@@ -142,9 +142,7 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 		tableName:   table.GetName(),
 		resourceKey: resourceKey,
 	}
-	tm.tmMtx.RLock()
 	t, found := tm.GetTransaction(clientId)
-	tm.tmMtx.RUnlock()
 	if !found {
 		return errors.New("Transaction not found")
 	}
