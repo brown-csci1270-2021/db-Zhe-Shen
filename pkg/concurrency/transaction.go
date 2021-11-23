@@ -140,7 +140,7 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 	tm.tmMtx.Lock()
 	defer tm.tmMtx.Unlock()
 	// Get the transaction we want.
-	t, found := tm.transactions[clientId]
+	_, found := tm.transactions[clientId]
 	if !found {
 		return errors.New("no transactions running")
 	}
@@ -153,9 +153,9 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 	if err != nil {
 		return err
 	}
-	t.WLock()
-	defer t.WUnlock()
-	delete(t.resources, r)
+	// t.WLock()
+	// defer t.WUnlock()
+	// delete(t.resources, r)
 	return nil
 }
 
