@@ -120,12 +120,12 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		}
 	}
 	tm.pGraph.WUnlock()
-	t.resources[resource] = lType
 	lm := tm.GetLockManager()
 	err := lm.Lock(resource, lType)
 	if err != nil {
 		return err
 	}
+	t.resources[resource] = lType
 	tm.pGraph.WLock()
 	for _, con := range conflicts {
 		tm.pGraph.RemoveEdge(t, con)
@@ -140,7 +140,7 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 		tableName:   table.GetName(),
 		resourceKey: resourceKey,
 	}
-	_, found := tm.GetTransaction(clientId)
+	t, found := tm.GetTransaction(clientId)
 	if !found {
 		return errors.New("Transaction not found")
 	}
@@ -149,9 +149,9 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 	if err != nil {
 		return err
 	}
-	// t.WLock()
-	// defer t.WUnlock()
-	// delete(t.resources, resource)
+	t.WLock()
+	defer t.WUnlock()
+	delete(t.resources, resource)
 	return nil
 }
 
