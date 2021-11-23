@@ -90,10 +90,6 @@ func (tm *TransactionManager) Begin(clientId uuid.UUID) error {
 
 // Locks the given resource. Will return an error if deadlock is created.
 func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceKey int64, lType LockType) error {
-	resource := Resource{
-		tableName:   table.GetName(),
-		resourceKey: resourceKey,
-	}
 	tm.tmMtx.Lock()
 	defer tm.tmMtx.Unlock()
 	// Get the transaction we want.
@@ -103,11 +99,20 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 	}
 	t.WLock()
 	defer t.WUnlock()
-	_, found = t.resources[resource]
-	if found {
-		return errors.New("test")
+	r := Resource{
+		tableName:   table.GetName(),
+		resourceKey: resourceKey,
 	}
-	conflicts := tm.discoverTransactions(resource, lType)
+	lt, found := t.resources[r]
+	if found {
+		if lt == R_LOCK && lType == W_LOCK {
+			return errors.New("Cannot upgrade lock")
+		} else if lt == W_LOCK && lType == R_LOCK {
+			return errors.New("Cannot downgrade lock")
+		}
+		return nil
+	}
+	conflicts := tm.discoverTransactions(r, lType)
 	tm.pGraph.WLock()
 	defer tm.pGraph.WUnlock()
 	for _, con := range conflicts {
@@ -117,11 +122,11 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		}
 	}
 	lm := tm.GetLockManager()
-	err := lm.Lock(resource, lType)
+	err := lm.Lock(r, lType)
 	if err != nil {
 		return err
 	}
-	t.resources[resource] = lType
+	t.resources[r] = lType
 	for _, con := range conflicts {
 		tm.pGraph.RemoveEdge(t, con)
 	}
@@ -130,10 +135,6 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 
 // Unlocks the given resource.
 func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourceKey int64, lType LockType) error {
-	resource := Resource{
-		tableName:   table.GetName(),
-		resourceKey: resourceKey,
-	}
 	tm.tmMtx.Lock()
 	defer tm.tmMtx.Unlock()
 	// Get the transaction we want.
@@ -142,13 +143,17 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 		return errors.New("no transactions running")
 	}
 	lm := tm.GetLockManager()
-	err := lm.Unlock(resource, lType)
+	r := Resource{
+		tableName:   table.GetName(),
+		resourceKey: resourceKey,
+	}
+	err := lm.Unlock(r, lType)
 	if err != nil {
 		return err
 	}
 	t.WLock()
 	defer t.WUnlock()
-	delete(t.resources, resource)
+	delete(t.resources, r)
 	return nil
 }
 
