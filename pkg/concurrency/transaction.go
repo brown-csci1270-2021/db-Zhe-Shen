@@ -117,9 +117,14 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 	defer tm.pGraph.WUnlock()
 	for _, con := range conflicts {
 		tm.pGraph.AddEdge(t, con)
-		if tm.pGraph.DetectCycle() {
-			return errors.New("Deadlock created")
+	}
+	defer func() {
+		for _, con := range conflicts {
+			tm.pGraph.RemoveEdge(t, con)
 		}
+	}()
+	if tm.pGraph.DetectCycle() {
+		return errors.New("Deadlock created")
 	}
 	lm := tm.GetLockManager()
 	err := lm.Lock(r, lType)
@@ -127,9 +132,6 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		return err
 	}
 	t.resources[r] = lType
-	for _, con := range conflicts {
-		tm.pGraph.RemoveEdge(t, con)
-	}
 	return nil
 }
 
