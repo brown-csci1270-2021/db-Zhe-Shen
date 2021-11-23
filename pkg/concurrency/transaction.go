@@ -140,7 +140,7 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 	tm.tmMtx.Lock()
 	defer tm.tmMtx.Unlock()
 	// Get the transaction we want.
-	_, found := tm.transactions[clientId]
+	t, found := tm.transactions[clientId]
 	if !found {
 		return errors.New("no transactions running")
 	}
@@ -149,13 +149,23 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 		tableName:   table.GetName(),
 		resourceKey: resourceKey,
 	}
+	t.WLock()
+	defer t.WUnlock()
+	lt, found := t.resources[r]
+	if found {
+		if lt == R_LOCK && lType == W_LOCK {
+			return errors.New("Cannot upgrade lock")
+		} else if lt == W_LOCK && lType == R_LOCK {
+			return errors.New("Cannot downgrade lock")
+		}
+	} else {
+		return errors.New("Lock not found")
+	}
 	err := lm.Unlock(r, lType)
 	if err != nil {
 		return err
 	}
-	// t.WLock()
-	// defer t.WUnlock()
-	// delete(t.resources, r)
+	delete(t.resources, r)
 	return nil
 }
 
