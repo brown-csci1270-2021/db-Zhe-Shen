@@ -107,7 +107,7 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		} else if lt == W_LOCK && lType == R_LOCK {
 			return errors.New("Cannot downgrade lock")
 		} else {
-			return nil
+			return errors.New("Same lock")
 		}
 	}
 	conflicts := tm.discoverTransactions(resource, lType)
@@ -126,7 +126,6 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 	if err != nil {
 		return err
 	}
-	conflicts = tm.discoverTransactions(resource, lType)
 	tm.pGraph.WLock()
 	for _, con := range conflicts {
 		tm.pGraph.RemoveEdge(t, con)
