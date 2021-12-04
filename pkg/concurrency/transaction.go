@@ -90,83 +90,86 @@ func (tm *TransactionManager) Begin(clientId uuid.UUID) error {
 
 // Locks the given resource. Will return an error if deadlock is created.
 func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceKey int64, lType LockType) error {
-	tm.tmMtx.Lock()
-	defer tm.tmMtx.Unlock()
-	// Get the transaction we want.
-	t, found := tm.transactions[clientId]
+	/* SOLUTION {{{ */
+	// Get the transaction we want, and construct the resource.
+	tm.tmMtx.RLock()
+	t, found := tm.GetTransaction(clientId)
 	if !found {
-		return errors.New("no transactions running")
+		tm.tmMtx.RUnlock()
+		return errors.New("transaction not found")
 	}
+	resource := Resource{tableName: table.GetName(), resourceKey: resourceKey}
+	// Check if we already have rights to the resource
+	t.RLock()
+	if curLockType, ok := t.resources[resource]; ok {
+		tm.tmMtx.RUnlock()
+		if curLockType == W_LOCK || curLockType == lType {
+			t.RUnlock()
+			return nil
+		}
+		t.RUnlock()
+		return errors.New("cannot upgrade to write lock in the middle of transaction")
+	}
+	t.RUnlock()
+	// Create a precedence graph, see if we create a cycle by locking this resource.
+	for _, tt := range tm.discoverTransactions(resource, lType) {
+		if t == tt {
+			continue
+		}
+		tm.pGraph.AddEdge(t, tt)
+		defer tm.pGraph.RemoveEdge(t, tt)
+	}
+	// If a deadlock, unlock and error.
+	if tm.pGraph.DetectCycle() {
+		tm.tmMtx.RUnlock()
+		return errors.New("deadlock detected")
+	}
+	// Else, lock the resource.
+	tm.tmMtx.RUnlock()
+	tm.lm.Lock(resource, lType)
 	t.WLock()
 	defer t.WUnlock()
-	r := Resource{
-		tableName:   table.GetName(),
-		resourceKey: resourceKey,
-	}
-	lt, found := t.resources[r]
-	if found {
-		if lt == R_LOCK && lType == W_LOCK {
-			return errors.New("Cannot upgrade lock")
-		} else if lt == W_LOCK && lType == R_LOCK {
-			return errors.New("Cannot downgrade lock")
-		}
-		return nil
-	}
-	conflicts := tm.discoverTransactions(r, lType)
-	tm.pGraph.WLock()
-	defer tm.pGraph.WUnlock()
-	for _, con := range conflicts {
-		tm.pGraph.AddEdge(t, con)
-	}
-	defer func() {
-		for _, con := range conflicts {
-			tm.pGraph.RemoveEdge(t, con)
-		}
-	}()
-	if tm.pGraph.DetectCycle() {
-		return errors.New("Deadlock created")
-	}
-	lm := tm.GetLockManager()
-	err := lm.Lock(r, lType)
-	if err != nil {
-		return err
-	}
-	t.resources[r] = lType
+	t.resources[resource] = lType
 	return nil
+	/* SOLUTION }}} */
 }
 
 // Unlocks the given resource.
 func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourceKey int64, lType LockType) error {
-	tm.tmMtx.Lock()
-	defer tm.tmMtx.Unlock()
-	// Get the transaction we want.
-	t, found := tm.transactions[clientId]
+	/* SOLUTION {{{ */
+	// Get the transaction we want, and construct the resource.
+	tm.tmMtx.RLock()
+	t, found := tm.GetTransaction(clientId)
+	tm.tmMtx.RUnlock()
 	if !found {
-		return errors.New("no transactions running")
+		return errors.New("transaction not found")
 	}
-	lm := tm.GetLockManager()
-	r := Resource{
-		tableName:   table.GetName(),
-		resourceKey: resourceKey,
-	}
+	resource := Resource{tableName: table.GetName(), resourceKey: resourceKey}
+	// Iterate through our locks to find the right one and remove it.
 	t.WLock()
 	defer t.WUnlock()
-	lt, found := t.resources[r]
-	if found {
-		if lt == R_LOCK && lType == W_LOCK {
-			return errors.New("Cannot upgrade lock")
-		} else if lt == W_LOCK && lType == R_LOCK {
-			return errors.New("Cannot downgrade lock")
+	removed := false
+	for r, storedType := range t.resources {
+		if storedType != lType {
+			return errors.New("incorrect unlock type")
 		}
-	} else {
-		return errors.New("Lock not found")
+		if r == resource {
+			removed = true
+			delete(t.resources, r)
+			break
+		}
 	}
-	err := lm.Unlock(r, lType)
+	// Error if no lock found.
+	if !removed {
+		return errors.New("resource not locked")
+	}
+	// Unlock the resource.
+	err := tm.lm.Unlock(resource, lType)
 	if err != nil {
 		return err
 	}
-	delete(t.resources, r)
 	return nil
+	/* SOLUTION }}} */
 }
 
 // Commits the given transaction and removes it from the running transactions list.

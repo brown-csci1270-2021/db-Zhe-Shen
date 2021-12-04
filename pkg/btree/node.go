@@ -57,24 +57,29 @@ func (node *LeafNode) search(key int64) int64 {
 // if update is true, allow overwriting existing keys. else, error.
 func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	/* SOLUTION {{{ */
-	// Get insert position.
+	/* CONCURRENCY {{{ */
 	node.unlockParent(false)
 	defer node.unlock()
+	/* CONCURRENCY }}} */
+	// Get insert position.
 	insertPos := node.search(key)
 	// Check if this is a duplicate entry.
 	if insertPos < node.numKeys && node.getKeyAt(insertPos) == key {
+		/* CONCURRENCY {{{ */
+		defer node.unlockParent(true)
+		/* CONCURRENCY }}} */
 		if update {
 			node.updateValueAt(insertPos, value)
-			node.unlockParent(true)
 			return Split{}
 		} else {
-			node.unlockParent(true)
 			return Split{err: errors.New("cannot insert duplicate key")}
 		}
 	}
 	// Return an error if we're updating a non-existent entry.
 	if update {
+		/* CONCURRENCY {{{ */
 		node.unlockParent(true)
+		/* CONCURRENCY }}} */
 		return Split{err: errors.New("cannot update non-existent entry")}
 	}
 	// Shift entries to the right if needed.
@@ -89,7 +94,9 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	if node.numKeys > ENTRIES_PER_LEAF_NODE {
 		return node.split()
 	}
+	/* CONCURRENCY {{{ */
 	node.unlockParent(true)
+	/* CONCURRENCY }}} */
 	return Split{}
 	/* SOLUTION }}} */
 }
@@ -97,9 +104,12 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 // delete removes a given tuple from the leaf node, if the given key exists.
 func (node *LeafNode) delete(key int64) {
 	/* SOLUTION {{{ */
-	// Find entry.
+	/* CONCURRENCY {{{ */
+	// Unlock parents, eventually unlock this node.
 	node.unlockParent(true)
 	defer node.unlock()
+	/* CONCURRENCY }}} */
+	// Find entry.
 	deletePos := node.search(key)
 	if deletePos >= node.numKeys || node.getKeyAt(deletePos) != key {
 		// Thank you Mario! But our key is in another castle!
@@ -211,28 +221,32 @@ func (node *InternalNode) search(key int64) int64 {
 // insert finds the appropriate place in a leaf node to insert a new tuple.
 func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 	/* SOLUTION {{{ */
-	// Insert the entry into the appropriate child node.
+	/* CONCURRENCY {{{ */
 	node.unlockParent(false)
-	// defer node.unlock()
+	/* CONCURRENCY }}} */
+	// Insert the entry into the appropriate child node.
 	childIdx := node.search(key)
 	child, err := node.getChildAt(childIdx, true)
 	if err != nil {
 		return Split{err: err}
 	}
+	/* CONCURRENCY {{{ */
 	node.initChild(child)
+	/* CONCURRENCY }}} */
 	defer child.getPage().Put()
 	// Insert value into the child.
 	result := child.insert(key, value, update)
 	// Insert a new key into our node if necessary.
 	if result.isSplit {
 		split := node.insertSplit(result)
+		/* CONCURRENCY {{{ */
+		defer node.unlock()
 		if !split.isSplit {
 			node.unlockParent(true)
 		}
-		node.unlock()
+		/* CONCURRENCY }}} */
 		return split
 	}
-	node.unlockParent(true)
 	return Split{err: result.err}
 	/* SOLUTION }}} */
 }
@@ -265,14 +279,18 @@ func (node *InternalNode) insertSplit(split Split) Split {
 // delete removes a given tuple from the leaf node, if the given key exists.
 func (node *InternalNode) delete(key int64) {
 	/* SOLUTION {{{ */
-	// Get child.
+	/* CONCURRENCY {{{ */
 	node.unlockParent(true)
+	/* CONCURRENCY }}} */
+	// Get child.
 	childIdx := node.search(key)
 	child, err := node.getChildAt(childIdx, true)
 	if err != nil {
 		return
 	}
+	/* CONCURRENCY {{{ */
 	node.initChild(child)
+	/* CONCURRENCY }}} */
 	defer child.getPage().Put()
 	// Delete from child.
 	child.delete(key)

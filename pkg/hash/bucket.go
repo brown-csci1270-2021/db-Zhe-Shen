@@ -1,6 +1,7 @@
 package hash
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -39,60 +40,77 @@ func (bucket *HashBucket) GetPage() *pager.Page {
 
 // Finds the entry with the given key.
 func (bucket *HashBucket) Find(key int64) (utils.Entry, bool) {
+	/* SOLUTION {{{ */
 	for i := int64(0); i < bucket.numKeys; i++ {
 		if bucket.getKeyAt(i) == key {
-			entry := bucket.getCell(i)
-			return entry, true
+			return bucket.getCell(i), true
 		}
 	}
 	return nil, false
+	/* SOLUTION }}} */
 }
 
 // Inserts the given key-value pair, splits if necessary.
 func (bucket *HashBucket) Insert(key int64, value int64) (bool, error) {
-	bucket.updateKeyAt(bucket.numKeys, key)
-	bucket.updateValueAt(bucket.numKeys, value)
+	/* SOLUTION {{{ */
+	bucket.modifyCell(bucket.numKeys, HashEntry{key: key, value: value})
 	bucket.updateNumKeys(bucket.numKeys + 1)
-	if bucket.numKeys >= BUCKETSIZE {
-		return true, nil
-	}
-	return false, nil
+	return bucket.numKeys >= BUCKETSIZE, nil
+	/* SOLUTION }}} */
 }
 
 // Update the given key-value pair, should never split.
 func (bucket *HashBucket) Update(key int64, value int64) error {
+	/* SOLUTION {{{ */
+	// Get the index to update.
+	index := int64(-1)
 	for i := int64(0); i < bucket.numKeys; i++ {
 		if bucket.getKeyAt(i) == key {
-			bucket.updateKeyAt(i, key)
-			bucket.updateValueAt(i, value)
-			return nil
+			index = i
+			break
 		}
 	}
-	return fmt.Errorf("%v not found\n", key)
+	if index == -1 {
+		return errors.New("key not found, update aborted")
+	}
+	// Update the value.
+	bucket.updateValueAt(index, value)
+	return nil
+	/* SOLUTION }}} */
 }
 
 // Delete the given key-value pair, does not coalesce.
 func (bucket *HashBucket) Delete(key int64) error {
+	/* SOLUTION {{{ */
+	// Get the index to delete.
+	index := int64(-1)
 	for i := int64(0); i < bucket.numKeys; i++ {
 		if bucket.getKeyAt(i) == key {
-			for j := i + 1; j < bucket.numKeys; j++ {
-				bucket.updateKeyAt(j-1, bucket.getKeyAt(j))
-				bucket.updateValueAt(j-1, bucket.getValueAt(j))
-			}
-			bucket.updateNumKeys(bucket.numKeys - 1)
-			return nil
+			index = i
+			break
 		}
 	}
-	return fmt.Errorf("%v not found\n", key)
+	if index == -1 {
+		return errors.New("key not found, delete aborted")
+	}
+	// Move all other keys left by one.
+	for i := index; i < bucket.numKeys; i++ {
+		bucket.modifyCell(i, bucket.getCell(i+1))
+	}
+	bucket.updateNumKeys(bucket.numKeys - 1)
+	return nil
+	/* SOLUTION }}} */
 }
 
 // Select all entries in this bucket.
 func (bucket *HashBucket) Select() ([]utils.Entry, error) {
-	entries := make([]utils.Entry, 0)
+	/* SOLUTION {{{ */
+	ret := make([]utils.Entry, 0)
 	for i := int64(0); i < bucket.numKeys; i++ {
-		entries = append(entries, bucket.getCell(i))
+		ret = append(ret, bucket.getCell(i))
 	}
-	return entries, nil
+	return ret, nil
+	/* SOLUTION }}} */
 }
 
 // Pretty-print this bucket.

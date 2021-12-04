@@ -15,6 +15,7 @@ import (
 	db "github.com/brown-csci1270/db/pkg/db"
 	hash "github.com/brown-csci1270/db/pkg/hash"
 
+	config "github.com/brown-csci1270/db/pkg/config"
 	uuid "github.com/google/uuid"
 )
 
@@ -80,7 +81,7 @@ func main() {
 	}
 	// Set up the log file.
 	os.Remove("./data/db.log")
-	err = database.CreateLogFile()
+	err = database.CreateLogFile(config.LogFileName)
 	if err != nil {
 		panic(err)
 	}
