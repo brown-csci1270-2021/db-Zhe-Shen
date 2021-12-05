@@ -223,11 +223,11 @@ func (rm *RecoveryManager) Recover() error {
 			rm.Redo(log)
 		case *startLog:
 			actives[log.id] = true
-			// rm.tm.Begin(log.id)
+			rm.tm.Begin(log.id)
 			// rm.Start(log.id)
 		case *commitLog:
 			delete(actives, log.id)
-			// rm.tm.Commit(log.id)
+			rm.tm.Commit(log.id)
 			// rm.Commit(log.id)
 		}
 		pos += 1
