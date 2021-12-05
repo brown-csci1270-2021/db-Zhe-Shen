@@ -96,7 +96,7 @@ func (rm *RecoveryManager) Commit(clientId uuid.UUID) {
 	cmLog := commitLog{
 		id: clientId,
 	}
-	rm.txStack[clientId] = []Log{}
+	delete(rm.txStack, clientId)
 	rm.writeToBuffer(cmLog.toString())
 }
 
@@ -209,8 +209,10 @@ func (rm *RecoveryManager) Recover() error {
 		case *editLog:
 			rm.Redo(log)
 		case *startLog:
+			rm.tm.Begin(log.id)
 			rm.Start(log.id)
 		case *commitLog:
+			rm.tm.Commit(log.id)
 			rm.Commit(log.id)
 		}
 		pos += 1
