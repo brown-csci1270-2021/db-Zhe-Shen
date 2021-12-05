@@ -221,9 +221,7 @@ func (rm *RecoveryManager) Recover() error {
 		firstLog := tlogs[0]
 		switch firstLog.(type) {
 		case *startLog:
-			if err := rm.Rollback(cid); err != nil {
-				return err
-			}
+			rm.Rollback(cid)
 		default:
 			return errors.New("transactions logs are not well formed")
 		}
@@ -237,9 +235,7 @@ func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
 	i := len(logs) - 1
 	for i > 0 {
 		log := logs[i]
-		if err := rm.Undo(log); err != nil {
-			return err
-		}
+		rm.Undo(log)
 		i -= 1
 	}
 	rm.Commit(clientId)
