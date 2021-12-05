@@ -200,6 +200,7 @@ func (rm *RecoveryManager) Recover() error {
 	if err != nil {
 		return err
 	}
+	pos += 1
 	for pos < len(logs) {
 		log := logs[pos]
 		switch log := log.(type) {
