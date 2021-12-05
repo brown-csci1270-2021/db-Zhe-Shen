@@ -258,6 +258,10 @@ func (rm *RecoveryManager) Recover() error {
 // Roll back a particular transaction.
 func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
 	logs := rm.txStack[clientId]
+	if len(logs) == 0 {
+		rm.Commit(clientId)
+		return rm.tm.Commit(clientId)
+	}
 	firstLog := logs[0]
 	switch firstLog.(type) {
 	case *startLog:
