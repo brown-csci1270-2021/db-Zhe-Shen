@@ -201,11 +201,8 @@ func (rm *RecoveryManager) Recover() error {
 		return err
 	}
 	actives := make(map[uuid.UUID]bool)
-	for _, log := range logs {
-		log, err := FromString(log.toString())
-		if err != nil {
-			continue
-		}
+	for pos < len(logs) {
+		log := logs[pos]
 		switch log := log.(type) {
 		case *tableLog:
 			rm.Redo(log)
@@ -214,23 +211,16 @@ func (rm *RecoveryManager) Recover() error {
 			rm.Redo(log)
 		case *startLog:
 			actives[log.id] = true
-			// rm.tm.Begin(log.id)
-			// rm.Start(log.id)
+			rm.tm.Begin(log.id)
 		case *commitLog:
 			delete(actives, log.id)
 			rm.tm.Commit(log.id)
-			// rm.Commit(log.id)
 		}
+		pos += 1
 	}
-
 	pos = len(logs) - 1
 	for pos >= 0 {
 		log := logs[pos]
-		log, err := FromString(log.toString())
-		if err != nil {
-			pos -= 1
-			continue
-		}
 		switch log := log.(type) {
 		case *editLog:
 			if _, ok := actives[log.id]; ok {
@@ -239,6 +229,7 @@ func (rm *RecoveryManager) Recover() error {
 		case *startLog:
 			if _, ok := actives[log.id]; ok {
 				delete(actives, log.id)
+				rm.tm.Commit(log.id)
 			}
 		}
 		pos -= 1
