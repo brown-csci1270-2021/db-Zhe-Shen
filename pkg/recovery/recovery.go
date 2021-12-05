@@ -207,16 +207,23 @@ func (rm *RecoveryManager) Recover() error {
 		case *tableLog:
 			rm.Redo(log)
 		case *editLog:
-			actives[log.id] = true
 			rm.Redo(log)
 		case *startLog:
-			actives[log.id] = true
 			rm.tm.Begin(log.id)
 		case *commitLog:
-			delete(actives, log.id)
 			rm.tm.Commit(log.id)
 		}
 		pos += 1
+	}
+	for _, log := range logs {
+		switch log := log.(type) {
+		case *editLog:
+			actives[log.id] = true
+		case *startLog:
+			actives[log.id] = true
+		case *commitLog:
+			delete(actives, log.id)
+		}
 	}
 	pos = len(logs) - 1
 	for pos >= 0 {
