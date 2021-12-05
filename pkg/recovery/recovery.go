@@ -201,6 +201,7 @@ func (rm *RecoveryManager) Recover() error {
 		return err
 	}
 	pos += 1
+	actives := make(map[uuid.UUID]bool)
 	for pos < len(logs) {
 		log := logs[pos]
 		log, err := FromString(log.toString())
@@ -212,24 +213,38 @@ func (rm *RecoveryManager) Recover() error {
 		case *tableLog:
 			rm.Redo(log)
 		case *editLog:
+			actives[log.id] = true
 			rm.Redo(log)
 		case *startLog:
+			actives[log.id] = true
 			rm.tm.Begin(log.id)
 			// rm.Start(log.id)
 		case *commitLog:
+			delete(actives, log.id)
 			rm.tm.Commit(log.id)
 			// rm.Commit(log.id)
 		}
 		pos += 1
 	}
-	for cid, tlogs := range rm.txStack {
-		firstLog := tlogs[0]
-		switch firstLog.(type) {
-		case *startLog:
-			rm.Rollback(cid)
-		default:
-			return errors.New("transactions logs are not well formed")
+	pos = len(logs) - 1
+	for pos >= 0 {
+		log := logs[pos]
+		log, err := FromString(log.toString())
+		if err != nil {
+			pos -= 1
+			continue
 		}
+		switch log := log.(type) {
+		case *editLog:
+			if _, ok := actives[log.id]; ok {
+				rm.Undo(log)
+			}
+		case *startLog:
+			if _, ok := actives[log.id]; ok {
+				delete(actives, log.id)
+			}
+		}
+		pos -= 1
 	}
 	return nil
 }
