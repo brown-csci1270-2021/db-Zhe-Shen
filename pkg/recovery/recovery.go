@@ -223,11 +223,11 @@ func (rm *RecoveryManager) Recover() error {
 			rm.Redo(log)
 		case *startLog:
 			actives[log.id] = true
-			rm.tm.Begin(log.id)
+			// rm.tm.Begin(log.id)
 			// rm.Start(log.id)
 		case *commitLog:
 			delete(actives, log.id)
-			rm.tm.Commit(log.id)
+			// rm.tm.Commit(log.id)
 			// rm.Commit(log.id)
 		}
 		pos += 1
@@ -258,14 +258,22 @@ func (rm *RecoveryManager) Recover() error {
 // Roll back a particular transaction.
 func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
 	logs := rm.txStack[clientId]
+	firstLog := logs[0]
+	switch firstLog.(type) {
+	case *startLog:
+		break
+	default:
+		return errors.New("transactions logs are not well formed")
+	}
+	for _, log := range logs {
+		_, err := FromString(log.toString())
+		if err != nil {
+			return err
+		}
+	}
 	i := len(logs) - 1
 	for i > 0 {
 		log := logs[i]
-		log, err := FromString(log.toString())
-		if err != nil {
-			i -= 1
-			continue
-		}
 		rm.Undo(log)
 		i -= 1
 	}
