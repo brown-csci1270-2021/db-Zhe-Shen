@@ -215,6 +215,10 @@ func (rm *RecoveryManager) Recover() error {
 		case *commitLog:
 			delete(actives, log.id)
 			rm.tm.Commit(log.id)
+		case *checkpointLog:
+			for _, id := range log.ids {
+				actives[id] = true
+			}
 		}
 		pos += 1
 	}
