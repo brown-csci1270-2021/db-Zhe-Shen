@@ -206,7 +206,6 @@ func (rm *RecoveryManager) Recover() error {
 			rm.Redo(log)
 		}
 	}
-	pos += 1
 	actives := make(map[uuid.UUID]bool)
 	for pos < len(logs) {
 		log := logs[pos]
