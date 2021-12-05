@@ -203,6 +203,11 @@ func (rm *RecoveryManager) Recover() error {
 	pos += 1
 	for pos < len(logs) {
 		log := logs[pos]
+		log, err := FromString(log.toString())
+		if err != nil {
+			pos += 1
+			continue
+		}
 		switch log := log.(type) {
 		case *tableLog:
 			rm.Redo(log)
@@ -210,10 +215,10 @@ func (rm *RecoveryManager) Recover() error {
 			rm.Redo(log)
 		case *startLog:
 			rm.tm.Begin(log.id)
-			rm.Start(log.id)
+			// rm.Start(log.id)
 		case *commitLog:
 			rm.tm.Commit(log.id)
-			rm.Commit(log.id)
+			// rm.Commit(log.id)
 		}
 		pos += 1
 	}
@@ -235,6 +240,11 @@ func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
 	i := len(logs) - 1
 	for i > 0 {
 		log := logs[i]
+		log, err := FromString(log.toString())
+		if err != nil {
+			i -= 1
+			continue
+		}
 		rm.Undo(log)
 		i -= 1
 	}
