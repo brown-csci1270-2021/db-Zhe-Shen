@@ -218,6 +218,7 @@ func (rm *RecoveryManager) Recover() error {
 		case *checkpointLog:
 			for _, id := range log.ids {
 				actives[id] = true
+				rm.tm.Begin(id)
 			}
 		}
 		pos += 1
@@ -236,8 +237,6 @@ func (rm *RecoveryManager) Recover() error {
 				rm.Commit(log.id)
 				rm.tm.Commit(log.id)
 			}
-		case *commitLog:
-			delete(actives, log.id)
 		}
 		pos -= 1
 	}
