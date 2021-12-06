@@ -236,6 +236,8 @@ func (rm *RecoveryManager) Recover() error {
 				rm.Commit(log.id)
 				rm.tm.Commit(log.id)
 			}
+		case *commitLog:
+			delete(actives, log.id)
 		}
 		pos -= 1
 	}
